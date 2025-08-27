@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Temporal Rift — Return to 2075</title>
+  <link rel="stylesheet" href="travel.css" />
+</head>
+<body>
+  <main class="wrap">
+    <!-- 背景层（起始：月球；结束前可闪一下 2075） -->
+    <div id="bg" class="bg"></div>
+
+    <!-- 故障/扫描线/噪点叠加 -->
+    <div class="grain"></div>
+    <div class="scanline"></div>
+    <div class="vignette"></div>
+
+    <!-- 中心“时间裂隙” -->
+    <div class="rift">
+      <div class="ring ring-1"></div>
+      <div class="ring ring-2"></div>
+      <div class="ring ring-3"></div>
+    </div>
+
+    <!-- 文案 & 倒计时 -->
+    <section class="hud">
+      <p id="line" class="line">Initializing temporal rift…</p>
+      <p class="sub">Return to <strong>2075</strong> in <span id="count">03</span>s</p>
+      <a id="skip" class="btn" href="index-2075.html" aria-label="Skip to 2075">SKIP ▶</a>
+    </section>
+  </main>
+
+  <!-- 可选：用视频做背景，video 放这里（class="bg-video"） -->
+  <!--
+  <video class="bg-video" autoplay muted playsinline>
+    <source src="flashback.mp4" type="video/mp4">
+  </video>
+  -->
+
+  <script src="travel.js"></script>
+</body>
+</html>

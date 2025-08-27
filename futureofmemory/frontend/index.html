@@ -1,13 +1,35 @@
 <!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vite App</title>
-  </head>
-  <body>
-    <div id="app"></div>
-    <script type="module" src="/src/main.js"></script>
-  </body>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Memory Futures — Lighthouse Home</title>
+  <link rel="stylesheet" href="src/style.css" />
+</head>
+<body>
+  <!-- 整个背景容器 -->
+  <main id="scene" class="scene" aria-label="Lighthouse homepage">
+    <!-- 左侧菜单 -->
+    <nav class="menu" aria-label="Main menu">
+      <h1 class="title">MEMORY<br/>FUTURES</h1>
+      <a href="src/moon.html" class="btn">NEW GAME</a>
+      <a href="src/moon.html" class="btn">CONTINUE</a>
+      <a href="src/moon.html" class="btn">SETTINGS</a>
+      <!-- <button class="btn">CONTINUE</button>
+      <button class="btn btn--secondary">SETTINGS</button> -->
+    </nav>
+
+    <!-- 灯塔“热点”区域：无背景，仅用于捕捉 hover/focus/tap -->
+    <button
+      id="lighthouseHotspot"
+      class="hotspot"
+      aria-label="Lighthouse (hover to brighten the beam)"
+    ></button>
+  </main>
+
+  <canvas id="snowCanvas" aria-hidden="true"></canvas>
+  <script src="src/script.js"></script>
+
+  
+</body>
 </html>
