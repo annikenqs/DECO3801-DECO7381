@@ -1,11 +1,11 @@
-// ========== 灯塔交互（只控制亮/暗；雪花始终独立运行） ==========
+// ========== Lighthouse interaction ==========
 const scene   = document.getElementById('scene');
 const hotspot = document.getElementById('lighthouseHotspot');
 
 const goBright = () => scene && scene.classList.add('is-bright');
 const goDim    = () => scene && scene.classList.remove('is-bright');
 
-// 鼠标/键盘可达性
+// hotspot
 if (hotspot) {
   hotspot.addEventListener('mouseenter', goBright);
   hotspot.addEventListener('mouseleave', goDim);
@@ -14,23 +14,23 @@ if (hotspot) {
   
 }
 
-// ========== 像素风雪花（始终运行）Snow ==========
+// ========== Snow ==========
 //According https://b23.tv/fagmbiZ
 (function initSnow(){
   const canvas = document.getElementById('snowCanvas');
   if (!canvas) return;
   const ctx = canvas.getContext('2d', { alpha: true });
 
-  // 配置
+  // Configuration
   const FLAKE_COUNT = 140;
   const SIZE_MIN = 1, SIZE_MAX = 3;
   const SPEED_MIN = 0.3, SPEED_MAX = 0.7;
-  const DRIFT = 0.35; // 左右漂移幅度
-  const SWAY  = 0.45; // 正弦摆动幅度
+  const DRIFT = 0.35; // Left and right drift amplitude
+  const SWAY  = 0.45; // Sinusoidal swing amplitude
 
   let flakes = [];
 
-  // 适配高 DPI，确保像素
+  // Adapt to high DPI to ensure pixel count
   function fitCanvas(){
     const dpr = Math.max(1, Math.floor(window.devicePixelRatio || 1));
     const cssW = canvas.clientWidth = window.innerWidth;
@@ -49,7 +49,7 @@ if (hotspot) {
       flakes.push({
         x: Math.random() * canvas.clientWidth,
         y: Math.random() * canvas.clientHeight,
-        size: Math.floor(rand(SIZE_MIN, SIZE_MAX + 1)), // 1~3 像素
+        size: Math.floor(rand(SIZE_MIN, SIZE_MAX + 1)), // 1~3 size
         vy: rand(SPEED_MIN, SPEED_MAX),
         drift: rand(-DRIFT, DRIFT),
         phase: Math.random() * Math.PI * 2
@@ -63,17 +63,17 @@ if (hotspot) {
     const t = performance.now() / 1000;
 
     for (const f of flakes){
-      // 正弦摆动 + 轻微漂移
+      // Sinusoidal swing + slight drift
       const sway = Math.sin(t + f.phase) * SWAY;
       const px = Math.floor(f.x + sway);
       const py = Math.floor(f.y);
       ctx.fillRect(px, py, f.size, f.size);
 
-      // 更新位置
+      // Update location
       f.y += f.vy;
       f.x += f.drift * 0.2;
 
-      // 出界循环
+      // Out-of-bounds loop
       if (f.y > canvas.clientHeight + 2){
         f.y = -4;
         f.x = Math.random() * canvas.clientWidth;
@@ -88,16 +88,16 @@ if (hotspot) {
     requestAnimationFrame(loop);
   }
 
-  // 初始化并常驻运行
+  // Initialize and run
   fitCanvas();
   spawnFlakes();
   loop();
 
-  // 调整尺寸时，重设像素比例与雪花
+  // When adjusting the size, reset the pixel ratio and snowflakes
   let resizeTimer = null;
   window.addEventListener('resize', () => {
     fitCanvas();
-    // 轻微防抖，防止频繁重算
+    // Slight anti-shake to prevent frequent recalculation
     clearTimeout(resizeTimer);
     resizeTimer = setTimeout(spawnFlakes, 120);
   });

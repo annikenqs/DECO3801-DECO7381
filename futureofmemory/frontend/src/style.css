@@ -1,5 +1,5 @@
 :root{
-    --text: #f3e7b8;          /* 暖光色 */
+    --text: #f3e7b8;          
     --dim:  #9aa7b0;
     --btn-bg:#0f1b26;
     --btn-brd:#324453;
@@ -32,7 +32,7 @@ body{
     background-image: url("./bg-lighthouse-bright.png");
 }
 
-/* 菜单位置 */
+/* menu location */
 .menu{
     position: relative;
     padding: 0;
@@ -57,7 +57,7 @@ body{
     position: relative;
 }
 
-/* 亮灯状态样式 */
+/* Lighting status style */
 .is-bright .title {
     color: #ffeb99;
     text-shadow:
@@ -66,7 +66,7 @@ body{
       0 0 40px rgba(255, 235, 180, 0.4);
 }
 
-/* 亮灯时在标题后出现 " 2075" */
+/* "2075" appears after the title when the light is on*/
 .is-bright .title::after {
     content: " 2075";
     font-size: 0.6em;
@@ -78,16 +78,16 @@ body{
     opacity: 1;
 }
 
-/* 暗灯时不显示 2075（透明） */
+/* 2075 is not displayed when the light is off */
 .title::after {
     opacity: 0;
 }
 
-/* 按钮/链接统一样式 */
+/* Unify the style of buttons/links */
 .btn{
-    display: flex;                  /* 用 flex 布局 */
-    justify-content: center;        /* 水平居中 */
-    align-items: center;            /* 垂直居中 */
+    display: flex;                  
+    justify-content: center;        
+    align-items: center;            
     width: min(320px, 60vw);
     margin: 10px 0;
     padding: 14px 18px;
@@ -98,11 +98,11 @@ body{
     font-weight: 600;
     cursor: pointer;
     box-shadow: inset 0 -4px 0 rgba(0,0,0,.25);
-    text-decoration: none;          /* 去掉超链接下划线 */
+    text-decoration: none;          
 }
 
 
-/* 鼠标悬停和键盘聚焦 */
+/* Mouse hover */
 .btn:hover, .btn:focus-visible{
     filter: brightness(1.1);
     outline: 2px solid rgba(243,231,184,.25);
@@ -111,7 +111,7 @@ body{
 
 .btn--secondary{ color:var(--dim); }
 
-/* 灯塔热点 */
+/* lighthouse hotspot*/
 .hotspot{
     position:absolute;
     right: min(12vw, 120px);
@@ -129,7 +129,7 @@ body{
     border-radius: 8px;
 }
 
-/* 响应式 */
+/* reactive */
 @media (max-width: 768px){
     .scene{ grid-template-columns: 1fr; }
     .menu{ align-self:end; margin-left: 10vw; }
@@ -141,7 +141,7 @@ body{
     }
 }
 
-/* 雪花效果画布 */
+/* Snowflake effect canvas */
 #snowCanvas{
     position: fixed;
     inset: 0;
