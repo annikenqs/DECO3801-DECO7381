@@ -12,6 +12,9 @@ jobs:
   lint:
     name: Verify Linting and Formatting
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: futureofmemory/frontend
 
     steps:
       - name: Checkout code
@@ -22,6 +25,7 @@ jobs:
         with:
           node-version: 20
           cache: npm
+          cache-dependency-path: futureofmemory/frontend/package-lock.json
 
       - name: Install dependencies
         run: npm ci
