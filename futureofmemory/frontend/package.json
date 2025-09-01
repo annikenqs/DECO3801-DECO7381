@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "check": "npm run lint && npm run format"
   },
   "devDependencies": {
     "eslint": "^9.34.0",
