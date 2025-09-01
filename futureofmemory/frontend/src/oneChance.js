@@ -1,15 +1,15 @@
-const text = "But you have one chance to go back...";
+const text = 'But you have one chance to go back...';
 let index = 0;
 const speed = 50; // typing speed
 
 function typeWriter() {
-    if (index < text.length) {
-        document.getElementById("story").innerHTML += text.charAt(index);
-        index++;
-        setTimeout(typeWriter, speed);
-    } else {
-        document.getElementById("next-btn").style.display = "inline-block"; // show NEXT button
-    }
+  if (index < text.length) {
+    document.getElementById('story').innerHTML += text.charAt(index);
+    index++;
+    setTimeout(typeWriter, speed);
+  } else {
+    document.getElementById('next-btn').style.display = 'inline-block'; // show NEXT button
+  }
 }
 
 window.onload = typeWriter;
