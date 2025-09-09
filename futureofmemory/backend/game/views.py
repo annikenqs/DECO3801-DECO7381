@@ -13,8 +13,10 @@ def _ensure_player(user):
     return p
 
 @login_required
-@csrf_exempt  # keep it simple for early dev; remove later if you want CSRF protection
+@csrf_exempt  
 @require_POST
+
+### function that selects the faction 
 def select_faction(request):
     """
     Body: {"faction": 0|1|2}
@@ -41,6 +43,7 @@ def select_faction(request):
 
 @login_required
 @require_GET
+### function that generates questions for the player
 def questions_for_player(request):
     """
     Return all questions for the player's faction in defined order.
@@ -63,8 +66,10 @@ def questions_for_player(request):
     return JsonResponse({"faction": player.faction, "questions": data})
 
 @login_required
-@csrf_exempt  # keep it simple for early dev
+@csrf_exempt  
 @require_POST
+
+### function that submits the answer
 def submit_answer(request):
     """
     Body: {"qid": <int>, "choice": 1..4}
