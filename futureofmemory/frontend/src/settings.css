@@ -1,0 +1,80 @@
+.settings-options {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+
+.btn{
+    display: flex;                  
+    justify-content: center;        
+    align-items: center;            
+    width: min(320px, 60vw);
+    margin: 10px 0;
+    padding: 14px 18px;
+    background: var(--btn-bg);
+    color: var(--text);
+    border: 2px solid var(--btn-brd);
+    letter-spacing: .5px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: inset 0 -4px 0 rgba(0,0,0,.25);
+    text-decoration: none;          
+}
+
+
+/* Mouse hover */
+.btn:hover, .btn:focus-visible{
+    filter: brightness(1.1);
+    outline: 2px solid rgba(243,231,184,.25);
+    outline-offset: 2px;
+}
+
+/* Font size classes for story/game text */
+.small-font { font-size: 14px; }
+.large-font { font-size: 20px; }
+
+/* Back to Menu button always stays fixed */
+.menu-button {
+  font-size: 16px !important;
+}
+
+#snowCanvas {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none; /* don’t block clicks */
+    z-index: 0; /* behind everything */
+  }
+  
+  .settings-container {
+    position: relative;
+    z-index: 1; /* make sure UI is above snow */
+    color: white; /* so text stays visible */
+  }
+
+  #scene {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  background: url("bg-lighthouse-dim.png") no-repeat center bottom;
+  background-size: cover;
+  transition: background 0.5s ease;
+}
+
+#scene.is-bright {
+  background: url("bg-lighthouse-bright.png") no-repeat center bottom;
+  background-size: cover;
+}
+
+#lighthouseHotspot {
+  position: absolute;
+  top: 20%;   /* adjust these values */
+  left: 70%;  /* so hotspot aligns with lighthouse */
+  width: 100px;  /* adjust for size */
+  height: 200px;
+  cursor: pointer;
+}
