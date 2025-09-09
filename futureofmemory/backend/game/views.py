@@ -27,8 +27,7 @@ def select_faction(request):
     except json.JSONDecodeError:
         return HttpResponseBadRequest("Invalid JSON")
 
-    faction = payload.get("faction", 0)
-    # Convert to int gently; fallback to 0 if invalid
+    faction = payload.get("faction", 0) # convert to int; return 0 if invalid
     try:
         faction = int(faction)
     except (TypeError, ValueError):
@@ -103,6 +102,8 @@ def submit_answer(request):
         question=q,
         defaults={"choice": choice}
     )
+
+    # if the answer wasn't created, then it creates one and updates the respective fields
     if not created:
         ans.choice = choice
         ans.save(update_fields=["choice", "answered_at"])
