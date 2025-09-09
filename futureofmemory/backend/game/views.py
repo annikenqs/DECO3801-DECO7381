@@ -34,10 +34,10 @@ def select_faction(request):
     except (TypeError, ValueError):
         faction = 0
 
-    player = _ensure_player(request.user)
-    player.faction = faction
-    player.current_order = 0
-    player.save(update_fields=["faction", "current_order", "updated_at"])
+    player = _ensure_player(request.user) # ensures the player gets a profile
+    player.faction = faction # assigns a faction 
+    player.current_order = 0 # assigns the player's current question
+    player.save(update_fields=["faction", "current_order", "updated_at"]) # updates the player's faction etc
 
     return JsonResponse({"ok": True, "faction": player.faction})
 
@@ -50,13 +50,13 @@ def questions_for_player(request):
     Minimal: just dump the 10 questions (id, order, text, options).
     """
     player = _ensure_player(request.user)
-    qs = (
+    qs = ( # filters questions based on the player's faction - ensures there's 10 of them
         Question.objects
         .filter(faction=player.faction)
         .order_by("order")[:10]
     )
 
-    data = [{
+    data = [{ # each question has an id, order, text and options (1 to 4)
         "id": q.id,
         "order": q.order,
         "text": q.text,
@@ -81,6 +81,7 @@ def submit_answer(request):
     except json.JSONDecodeError:
         return HttpResponseBadRequest("Invalid JSON")
 
+    # tries getting the ID and choice
     qid = payload.get("qid")
     choice = payload.get("choice")
 
