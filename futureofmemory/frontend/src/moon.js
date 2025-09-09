@@ -1,6 +1,6 @@
 const text = "It's 2100...\nYou are the last human alive...";
 let index = 0;
-const speed = 50; // typing speed
+const speed = 50;
 
 function typeWriter() {
   if (index < text.length) {
@@ -8,7 +8,7 @@ function typeWriter() {
     index++;
     setTimeout(typeWriter, speed);
   } else {
-    document.getElementById('next-btn').style.display = 'inline-block'; // 显示按钮
+    document.getElementById('next-btn').style.display = 'inline-block';
   }
 }
 

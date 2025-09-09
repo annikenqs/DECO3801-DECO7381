@@ -1,0 +1,76 @@
+*{ box-sizing:border-box }
+html,body{ height:100% }
+body{
+  margin:0;
+  font-family:'Courier New', monospace;
+  color:#fff;
+}
+
+/* Pixel background (image in /src/) */
+.bg{
+  position:fixed; inset:0; z-index:-1; pointer-events:none;
+  background: url("bg-pixel-sky.png") center/cover no-repeat fixed;
+  image-rendering: pixelated;
+  filter: saturate(1.06) brightness(1.10);  /* brighter */
+}
+.bg::after{
+  content:""; position:absolute; inset:0;
+  /* lighter vignette so text stays readable without darkening too much */
+  background: linear-gradient(to bottom, #0003, #0006 60%, #0008);
+}
+
+/* Centered content */
+.wrap{ max-width:1000px; margin:12vh auto 8vh; padding:0 20px; text-align:center; }
+.title{ margin:0 0 .5rem; font-size:clamp(28px,5vw,48px); text-shadow:0 2px 8px #0007; }
+.lead{ margin: .25rem auto 1.5rem; max-width: 70ch; font-size: clamp(14px, 2.4vw, 22px); line-height: 1.6;}
+
+
+/* Choices grid */
+.choices{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; }
+@media (max-width:900px){ .choices{ grid-template-columns:1fr; } }
+
+/* Card: left image, right text (50/50). On mobile stack vertically. */
+.choice{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:12px;
+  align-items:stretch;
+  padding:12px;
+  border:1px solid #ffffff40;
+  border-radius:14px;
+  background: rgba(255,255,255,.08);
+  color:inherit; text-align:left; cursor:pointer;
+  transition: transform .15s ease, background .2s ease, border-color .2s ease;
+}
+.choice:hover{ transform:translateY(-3px); background:rgba(255,255,255,.12); border-color:#fff7; }
+.choice:focus-visible{ outline:3px solid #8ab4f8; outline-offset:2px; }
+.choice.selected{ border-color:#ffd86b; box-shadow:0 6px 18px rgba(255,216,107,.22); }
+
+@media (max-width:900px){
+  .choice{ grid-template-columns:1fr; }
+}
+
+/* Left half: thumbnail image */
+.thumb{
+  background-image: var(--img);
+  background-position:center;
+  background-size:cover;
+  background-repeat:no-repeat;
+  image-rendering: pixelated;
+  border-radius:10px;
+  min-height:140px;
+  filter: brightness(1.06) contrast(1.02);
+  position:relative;
+}
+.thumb::after{
+  content:""; position:absolute; inset:0;
+  background: radial-gradient(100% 100% at 50% 50%, #0000 55%, #0003 100%);
+}
+@media (max-width:900px){
+  .thumb{ min-height:180px; }
+}
+
+/* Right half: text */
+.content{ align-self:center; }
+.content h2{ margin:.2rem 0 .4rem; font-size:20px; }
+.content p{ margin:0; opacity:.95; }
