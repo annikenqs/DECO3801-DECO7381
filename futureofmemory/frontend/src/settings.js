@@ -21,11 +21,11 @@ fontBtn.addEventListener('click', () => {
   fontBtn.textContent = `FONT SIZE: ${fontSizes[currentSize]}`;
 
   document.body.style.fontSize =
-  fontSizes[currentSize] === "SMALL"
-    ? "14px"
-    : fontSizes[currentSize] === "MEDIUM"
-    ? "18px"
-    : "22px";
+    fontSizes[currentSize] === 'SMALL'
+      ? '14px'
+      : fontSizes[currentSize] === 'MEDIUM'
+        ? '18px'
+        : '22px';
 });
 
 document.getElementById('backBtn').addEventListener('click', () => {
