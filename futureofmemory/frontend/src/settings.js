@@ -19,6 +19,13 @@ let currentSize = 1; // MEDIUM
 fontBtn.addEventListener('click', () => {
   currentSize = (currentSize + 1) % fontSizes.length;
   fontBtn.textContent = `FONT SIZE: ${fontSizes[currentSize]}`;
+
+  document.body.style.fontSize =
+  fontSizes[currentSize] === "SMALL"
+    ? "14px"
+    : fontSizes[currentSize] === "MEDIUM"
+    ? "18px"
+    : "22px";
 });
 
 document.getElementById('backBtn').addEventListener('click', () => {
