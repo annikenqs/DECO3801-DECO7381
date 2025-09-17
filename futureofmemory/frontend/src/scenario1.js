@@ -6,9 +6,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // mapping next page
   const NEXT_BY_MODE = {
-    rightists: 'rightists.html',
-    resourceists: 'resourceists.html',
-    responsibilists: 'responsibilists.html',
+    rightists: 'After_rightchoice.html',
+    resourceists: 'After_resourcechoice.html',
+    responsibilists: 'After_rightchoice.html',
   };
 
   choices.forEach((btn) => {
