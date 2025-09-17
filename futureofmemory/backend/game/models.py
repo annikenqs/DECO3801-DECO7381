@@ -26,7 +26,6 @@ class Question(models.Model):
     option1 = models.CharField(max_length=255)
     option2 = models.CharField(max_length=255)
     option3 = models.CharField(max_length=255)
-    option4 = models.CharField(max_length=255)
 
     class Meta:
         unique_together = ('faction', 'order')
