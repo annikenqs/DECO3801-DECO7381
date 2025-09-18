@@ -9,7 +9,7 @@ body{
 /* Pixel background (image in /src/) */
 .bg{
   position:fixed; inset:0; z-index:-1; pointer-events:none;
-  background: url("bg-pixel-sky.png") center/cover no-repeat fixed;
+  background: url("Black.png") center/cover no-repeat fixed;
   image-rendering: pixelated;
   filter: saturate(1.06) brightness(1.10);  /* brighter */
 }

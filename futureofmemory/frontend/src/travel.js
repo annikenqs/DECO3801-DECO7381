@@ -1,3 +1,4 @@
+//The teleportation effect learn from the tutorial and ChatGPT.
 // Jump to the target (2075 starting page)
 const TARGET_URL = 'index-2075.html';
 
