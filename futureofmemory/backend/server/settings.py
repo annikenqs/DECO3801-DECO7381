@@ -25,7 +25,7 @@ SECRET_KEY = 'django-insecure-gf&=hz_jl!_5^3@o&c7q(-4zqb^m4yc$+%x$ndv@rcg*-n!r)$
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["testserver", "127.0.0.1", "localhost"] # change later
 
 
 # Application definition
@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'rest_framework',
     'game'
 ]
 
