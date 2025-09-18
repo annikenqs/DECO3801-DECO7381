@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Temporal Rift — Return to 2075</title>
+    <link rel="stylesheet" href="travel.css" />
+  </head>
+  <body>
+    <main class="wrap">
+      <!-- Background layer (Starting: Moon; can flash 2075 before ending) -->
+      <div id="bg" class="bg"></div>
+
+      <!-- Fault/scan line/noise point superposition -->
+      <div class="grain"></div>
+      <div class="scanline"></div>
+      <div class="vignette"></div>
+
+      <!-- time rift -->
+      <div class="rift">
+        <div class="ring ring-1"></div>
+        <div class="ring ring-2"></div>
+        <div class="ring ring-3"></div>
+      </div>
+
+      <!-- Text & Countdown -->
+      <section class="hud">
+        <p id="line" class="line">Initializing temporal rift…</p>
+        <p class="sub">Return to <strong>2075</strong> in <span id="count">03</span>s</p>
+        <a id="skip" class="btn" href="index-2075.html" aria-label="Skip to 2075">SKIP ▶</a>
+      </section>
+    </main>
+
+    <script src="travel.js"></script>
+  </body>
+</html>
