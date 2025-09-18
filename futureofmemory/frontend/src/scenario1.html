@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Choose the 2075 World</title>
+  <link rel="stylesheet" href="scenario1.css" />
+  <script defer src="scenario1.js"></script>
+</head>
+<body>
+  <!-- Fullscreen pixel background -->
+  <div class="bg" aria-hidden="true"></div>
+
+  <main class="wrap">
+    <h1 class="title">This choice will rewrite 2075</h1>
+    <p class="lead">Build your 2075: is memory a Right, a Resource, or a Responsibility?</p>
+
+    <section class="choices">
+      <!-- Rightists -->
+      <button class="choice" data-mode="rightists">
+        <div class="thumb" style="--img:url('rightists.png')" role="img" aria-label="Rightists illustration"></div>
+        <div class="content">
+          <h2>Rightists</h2>
+          <p>Memory as a right: not for sale, explicit consent, revocable at any time.</p>
+        </div>
+      </button>
+
+      <!-- Responsibilists -->
+      <button class="choice" data-mode="responsibilists">
+        <div class="thumb" style="--img:url('responsibilists.png')" role="img" aria-label="Responsibilists illustration"></div>
+        <div class="content">
+          <h2>Responsibilists</h2>
+          <p>Memory as a responsibility: co-governed and restored by the community, with ritual and care.</p>
+        </div>
+      </button>
+
+      <!-- Resourceists -->
+      <button class="choice" data-mode="resourceists">
+        <div class="thumb" style="--img:url('resourceists.png')" role="img" aria-label="Resourceists illustration"></div>
+        <div class="content">
+          <h2>Resourceists</h2>
+          <p>Memory as a resource: can be sharded, priced, and revenue-shared, with financialization risks.</p>
+        </div>
+      </button>
+    </section>
+  </main>
+</body>
+</html>
