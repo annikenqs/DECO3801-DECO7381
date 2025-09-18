@@ -5,7 +5,7 @@ from django.http import JsonResponse, HttpResponseBadRequest
 from django.shortcuts import get_object_or_404
 import json
 
-from .models import Player, Question, Answer, Faction
+from ..models import Player, Question, Answer, Faction
 
 def _ensure_player(user):
     """Create a Player profile for the logged-in user if missing."""
