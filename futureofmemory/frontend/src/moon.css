@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 body {
   margin: 0;
   padding: 0;
@@ -31,3 +32,38 @@ body {
 .next-button:hover {
   background-color: rgba(255, 255, 255, 0.3);
 }
+=======
+body {
+  margin: 0;
+  padding: 0;
+  background: url('Shelter.png') no-repeat center center/cover;
+  height: 100vh;
+  font-family: 'Courier New', monospace;
+  color: white;
+}
+
+.typewriter {
+  position: absolute;
+  bottom: 100px;
+  left: 50px;
+  font-size: 24px;
+  white-space: pre-line;
+}
+
+.next-button {
+    position: absolute;
+    bottom: 40px;
+    right: 50px; 
+    padding: 10px 20px;
+    background-color: rgba(255,255,255,0.1);
+    border: 1px solid white;
+    color: white;
+    text-decoration: none;
+    font-size: 18px;
+    transition: background 0.3s;
+}
+
+.next-button:hover {
+  background-color: rgba(255, 255, 255, 0.3);
+}
+>>>>>>> main
