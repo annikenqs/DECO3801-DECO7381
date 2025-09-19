@@ -161,60 +161,6 @@ def resume_state(request):
         "answered": answered,
     })
 
-
-
-# from django.shortcuts import render, get_object_or_404
-# from django.http import HttpResponse, JsonResponse, HttpResponseBadRequest
-# from django.contrib.auth.decorators import login_required
-# from django.views.decorators.http import require_POST, require_GET
-# from django.db.models import Q
-# import json
-
-# from .models import Player, Question, Answer, Faction
-
-
-
-# def index(request):
-#     # just a simple view to test until frontend is ready
-#     return HttpResponse("Future of Memory - Backend is ready. ")
-
-# def ping(request):
-#     return JsonResponse({"ok": True, "msg": "pong"})
-
-
-# def ensure_player(user):
-#     p, _ = Player.objects.get_or_create(user=user)
-#     return p
-
-
-# @login_required
-# @require_POST
-# def choose_faction(request):
-#     """
-#     body: {"faction": 0|1|2}
-#     """
-#     try:
-#         payload = json.loads(request.body or '{}')
-#     except json.JSONDecodeError:
-#         return HttpResponseBadRequest("Invalid JSON")
-
-#     code = payload.get('faction')
-#     valid = [e.value for e in Faction]
-#     if code not in valid:
-#         return HttpResponseBadRequest("Invalid faction")
-
-#     p = ensure_player(request.user)
-#     p.faction = code
-#     p.current_order = 0  
-#     p.save(update_fields=["faction", "current_order", "updated_at"])
-
-#     return JsonResponse({
-#         "ok": True,
-#         "faction": p.faction,
-#         "label": p.get_faction_display(),
-#     })
-
-
 # @login_required
 # @require_GET
 # def next_question(request):
@@ -233,57 +179,4 @@ def resume_state(request):
 #         "order": q.order,
 #         "text": q.text,
 #         "options": [q.option1, q.option2, q.option3, q.option4],
-#     })
-
-
-# @login_required
-# @require_POST
-# def submit_answer(request, qid: int):
-#     try:
-#         payload = json.loads(request.body or '{}')
-#     except json.JSONDecodeError:
-#         return HttpResponseBadRequest("Invalid JSON")
-
-#     choice = payload.get('choice')
-#     if choice not in (1, 2, 3, 4):
-#         return HttpResponseBadRequest("choice must be 1..4")
-
-#     p = ensure_player(request.user)
-#     q = get_object_or_404(Question, id=qid)
-
-#     if q.faction != p.faction:
-#         return HttpResponseBadRequest("question not in player's faction")
-
-#     ans, created = Answer.objects.get_or_create(
-#         player=p, question=q, defaults={"choice": choice}
-#     )
-#     if not created:
-#         ans.choice = choice
-#         ans.save(update_fields=["choice", "answered_at"])
-
-#     if p.current_order < q.order:
-#         p.current_order = q.order
-#         p.save(update_fields=["current_order", "updated_at"])
-
-#     return JsonResponse({
-#         "ok": True,
-#         "saved_order": p.current_order,
-#     })
-
-
-# @login_required
-# @require_GET
-# def resume_state(request):
-#     """
-#     """
-#     p = ensure_player(request.user)
-#     answered = Answer.objects.filter(
-#         player=p, question__faction=p.faction
-#     ).count() if p.faction in [e.value for e in Faction] else 0
-
-#     return JsonResponse({
-#         "faction": p.faction,
-#         "label": p.get_faction_display() if p.faction in [e.value for e in Faction] else None,
-#         "current_order": p.current_order,
-#         "answered": answered,
 #     })
