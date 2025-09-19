@@ -42,8 +42,9 @@ export async function request(
   let data = null;
   try {
     data = await res.json();
-  } catch (e) {
+  } catch (err) {
     /* ignore non-JSON response */
+    void err; // avoid no-unused-vars/no-empty
   }
 
   if (!res.ok) {

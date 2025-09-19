@@ -5,7 +5,6 @@ const STORAGE_KEY = 'worldMode';
 const SESSION_KEY = 'fmSessionId';
 const API_BASE = '/api'; //  If use a Vite proxy, that's fine; If directly cross domains, can change it to the complete backend address
 
-
 function ensureSession() {
   let sid = localStorage.getItem(SESSION_KEY);
   if (!sid) {
@@ -19,17 +18,21 @@ async function sendFaction(sessionId, faction) {
   try {
     const res = await fetch(`${API_BASE}/faction`, {
       method: 'POST',
-      headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+      headers: {Accept: 'application/json', 'Content-Type': 'application/json'},
       credentials: 'include',
-      body: JSON.stringify({ sessionId, faction }),
+      body: JSON.stringify({sessionId, faction}),
     });
-    
+
     if (!res.ok) {
       let msg = `HTTP ${res.status}`;
       try {
         const data = await res.json();
         msg = (data && (data.error || data.message)) || msg;
-      } catch {}
+      } catch (err) {
+        // ignore saved state parse error
+        void err;
+      }
+
       throw new Error(msg);
     }
   } catch (e) {
@@ -58,7 +61,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const mode = btn.dataset.mode;
       localStorage.setItem(
         STORAGE_KEY,
-        JSON.stringify({ mode, decidedAt: new Date().toISOString() })
+        JSON.stringify({mode, decidedAt: new Date().toISOString()})
       );
 
       // sync to backend (non-blocking)
@@ -75,7 +78,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Optional: restore previously selected button 
+  // Optional: restore previously selected button
   // try {
   //   const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
   //   if (saved?.mode) {
