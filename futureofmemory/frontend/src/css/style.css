@@ -28,7 +28,7 @@ body {
 .scene {
   position: relative;
   min-height: 100svh;
-  background-image: url('./bg-lighthouse-dim.png');
+  background-image: url('../media/bg-lighthouse-dim.png');
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -41,7 +41,7 @@ body {
 }
 
 .scene.is-bright {
-  background-image: url('./bg-lighthouse-bright.png');
+  background-image: url('../media/bg-lighthouse-bright.png');
 }
 
 /* menu location */
