@@ -1,1 +1,28 @@
+# Django
+django
 djangorestframework
+
+# LangChain + RAG
+langchain
+langchain-community
+langchain-chroma
+langchain-huggingface
+langgraph
+chromadb
+
+# Models/embeddings
+transformers
+sentence-transformers
+torch
+numpy
+
+# Google Gemini
+google-generativeai
+langchain-google-genai
+
+# Document loaders
+python-docx
+pypdf
+
+
+
