@@ -43,3 +43,6 @@ venv/
 *.sqlite3
 *.bin
 *.pickle
+
+# Firebase service account key
+serviceAccountKey.json

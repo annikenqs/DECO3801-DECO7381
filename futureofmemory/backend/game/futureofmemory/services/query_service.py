@@ -1,6 +1,8 @@
 from typing_extensions import TypedDict, List
 from langgraph.graph import StateGraph, START
 from langchain_core.documents import Document
+import json
+import re
 
 from .embedding_service import get_embeddings
 from .chroma_service import init_chroma, load_documents
@@ -20,10 +22,11 @@ def init_rag():
     if vector_store is None:
         embeddings = get_embeddings()
         vector_store = init_chroma(embeddings)
-        llm = get_llm()
         splits = load_documents()
         if splits: 
             vector_store.add_documents(splits)
+    if llm is None:
+        llm = get_llm()
     return vector_store, llm
 
 def run_rag_query(query: str):
@@ -47,6 +50,25 @@ def retrieve(state: State):
     vs, _ = init_rag()
     retrieved_docs = vs.similarity_search(state["question"])
     return {"context": retrieved_docs}
+
+def safe_parse_response(raw: str) -> dict:
+    """Try to parse model output into JSON, with fallbacks."""
+    cleaned = re.sub(r"^```[a-zA-Z]*\n?", "", raw)  
+    cleaned = re.sub(r"\n?```$", "", cleaned)     
+    cleaned = cleaned.strip()
+
+    try:
+        parsed = json.loads(cleaned)
+    except json.JSONDecodeError:
+        return {"raw": raw}
+
+    # Fallbacks if keys are missing
+    if "scenario_text" not in parsed and "scenario" in parsed:
+        parsed["scenario_text"] = parsed["scenario"]
+    if "scenario_text" not in parsed:
+        parsed["scenario_text"] = parsed.get("raw", "")
+
+    return parsed
 
 def generate(state: State):
     vs, llm = init_rag()
@@ -84,7 +106,11 @@ def generate(state: State):
         raise ValueError(f"Unknown role: {role}")
 
     response = llm.invoke(prompt)
-    return {"answer": response.content, role: response.content}
+    raw = response.content.strip()
+    parsed = safe_parse_response(raw)
+
+    return {"answer": raw, role: parsed}
+
 
 graph_builder = StateGraph(State).add_sequence([retrieve, generate])
 graph_builder.add_edge(START, "retrieve")

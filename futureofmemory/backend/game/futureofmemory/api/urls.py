@@ -1,9 +1,8 @@
 from django.urls import path
-from .views import ScenarioView, ChoicesView, OutcomeView
+from .views import SessionView, ScenarioView, ChoiceView
 
 urlpatterns = [
-    path("scenario/", ScenarioView.as_view(), name="scenario"),
-    path("choices/", ChoicesView.as_view(), name="choices"),
-    path("outcome/", OutcomeView.as_view(), name="outcome"),
-    
+    path("session/", SessionView.as_view(), name="session"),
+    path("session/<str:session_id>/scenario/", ScenarioView.as_view(), name="scenario"),
+    path("session/<str:session_id>/choice/", ChoiceView.as_view(), name="choice"),
 ]
