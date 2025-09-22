@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Firestore Demo</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #111; color: #eee; padding: 16px; }
+    pre  { background: #222; padding: 12px; border-radius: 8px; overflow: auto; }
+    code { background: #222; padding: 2px 6px; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <h2>Firestore Demo</h2>
+  <p>
+    Append <code>?pin=YOUR_PIN</code> to the end of the URL to load an existing game.
+    If you don’t add a PIN, this page will create a new game session and show its PIN.
+  </p>
+  <div><b>PIN:</b> <span id="pin">-</span></div>
+  <pre id="out">Loading...</pre>
+
+  <script type="module">
+    // import requisite functions from game.js
+  import { createGameSession, getGameByPin } from "./game.js";
+  import {
+    setGameStatus,
+    setWorldview,
+    setTurnPrompt,
+    addPlayer,
+    castVote,
+  } from "./game.js";
+
+  const log = (v) => {
+    document.getElementById("out").textContent =
+      typeof v === "string" ? v : JSON.stringify(v, null, 2);
+  };
+
+  // === hardcoded demo switches ===
+  // FIXED_PIN is set to null by default; this creates a new game and then updates it
+  // if you want a specific session to always update, then set FIXED_PIN to its pin (e.g. 240440)
+
+  const FIXED_PIN = null;
+
+  // Hardcoded update values (as a demonstration - change these as you wish)
+  const HARDCODED = {
+    status: "active",                      // "lobby" | "active" | "finished"
+    worldview: "right",                    // "right" | "resource" | "responsibility" | null
+    prompt: "Updated by hardcoded demo",   // turn.prompt
+    playerId: "u-demo",
+    playerName: "Demo User",
+    voteOption: "a",                       // must exist in options
+  };
+
+  (async () => {
+    try {
+      // 1) pick target pin (fixed -> url ?pin= -> create new)
+      const url = new URL(location.href); // obtain the url
+      const urlPin = url.searchParams.get("pin"); // as the url contains the pin, obtain its pin (html?pin=173715)
+      const pin = // the pin is either: 
+        FIXED_PIN || // FIXED_PIN (i.e. the random pin)
+        urlPin || // the pin obtained in the URL
+        (await (async () => { // or the pin created by the game session
+          const { pin } = await createGameSession({ // these are hard-coded for now
+            worldview: null, // "right" | "resource" | "responsibility" | null
+            turn: {
+              year: 2030, // current year (this one is wrong but its the thought that counts)
+              prompt: "What is the top priority this year?", // prompt 
+              options: [ // options
+                { id: "a", text: "Welfare" },
+                { id: "b", text: "Defense" },
+                { id: "c", text: "Environment" },
+              ],
+              voters: [], // people currently voting
+              state: "voting", // current state
+            },
+          });
+          return pin;
+        })());
+
+      document.getElementById("pin").textContent = pin;
+
+      // 2) perform hardcoded updates (no user input)
+      await setGameStatus(pin, HARDCODED.status);
+      await setWorldview(pin, HARDCODED.worldview);
+      await setTurnPrompt(pin, HARDCODED.prompt);
+      await addPlayer(pin, HARDCODED.playerId, HARDCODED.playerName);
+      await castVote(pin, HARDCODED.playerId, HARDCODED.voteOption);
+
+      // 3) fetch and display final document
+      const fresh = await getGameByPin(pin);
+      log(fresh);
+
+    } catch (e) {
+      log(`Error: ${e.message || e}`);
+    }
+  })();
+</script>
+
+</body>
+</html>
