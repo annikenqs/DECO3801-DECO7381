@@ -16,16 +16,16 @@ body {
 }
 
 .next-button {
-    position: absolute;
-    bottom: 40px;
-    right: 50px; 
-    padding: 10px 20px;
-    background-color: rgba(255,255,255,0.1);
-    border: 1px solid white;
-    color: white;
-    text-decoration: none;
-    font-size: 18px;
-    transition: background 0.3s;
+  position: absolute;
+  bottom: 40px;
+  right: 50px;
+  padding: 10px 20px;
+  background-color: rgba(255, 255, 255, 0.1);
+  border: 1px solid white;
+  color: white;
+  text-decoration: none;
+  font-size: 18px;
+  transition: background 0.3s;
 }
 
 .next-button:hover {
