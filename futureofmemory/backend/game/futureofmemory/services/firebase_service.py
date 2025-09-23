@@ -35,3 +35,6 @@ def update_scenarios(session_id: str, scenarios: list):
 
 def update_year(session_id: str, year: int):
     db.collection("games").document(session_id).update({"year": year})
+
+def update_faction(session_id: str, faction: str):
+    db.collection("games").document(session_id).update({"faction": faction})
