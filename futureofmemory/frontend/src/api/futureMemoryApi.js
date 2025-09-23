@@ -60,14 +60,10 @@ export async function request(
 // Get "The current plot scene to be displayed"
 export function getScenario({sessionId}) {
   if (!sessionId) throw new Error('getScenario: sessionId is required');
-  return request('/scenario', {query: {sessionId}});
-}
-
-// Obtain the list of options for a scenario
-export function getChoices({sessionId, scenarioId}) {
-  if (!sessionId) throw new Error('getChoices: sessionId is required');
-  if (!scenarioId) throw new Error('getChoices: scenarioId is required');
-  return request('/choices', {query: {sessionId, scenarioId}});
+  return request(`/session/${sessionId}/scenario/`, {
+    method: "POST",
+    body: {},
+  });
 }
 
 // Send the player's choice and get the next scene
@@ -75,10 +71,12 @@ export function sendChoice({sessionId, scenarioId, choiceId, idempotencyKey}) {
   if (!sessionId) throw new Error('sendChoice: sessionId is required');
   if (!scenarioId) throw new Error('sendChoice: scenarioId is required');
   if (!choiceId) throw new Error('sendChoice: choiceId is required');
-  return request('/choice', {
-    method: 'POST',
-    body: {sessionId, scenarioId, choiceId},
-    headers: idempotencyKey ? {'Idempotency-Key': idempotencyKey} : undefined,
+  return request(`/session/${sessionId}/choice/`, {
+    method: "PATCH", 
+    body: { scenarioId, choiceId },
+    headers: idempotencyKey
+      ? { "Idempotency-Key": idempotencyKey }
+      : undefined,
   });
 }
 
@@ -88,5 +86,16 @@ export function sendFaction({sessionId, faction}) {
   if (!['rightists', 'resourceists', 'responsibilists'].includes(faction)) {
     throw new Error('sendFaction: faction must be rightists | resourceists | responsibilists');
   }
-  return request('/faction', {method: 'POST', body: {sessionId, faction}});
+  return request(`/session/${sessionId}/faction`, {
+    method: 'POST', 
+    body: { faction },
+  });
+}
+
+// Create a new game session
+export async function createSession() {
+  return request("/session/", {
+    method: "POST",
+    body: {}, 
+  });
 }
