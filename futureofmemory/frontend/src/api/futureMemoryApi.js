@@ -61,7 +61,7 @@ export async function request(
 export function getScenario({sessionId}) {
   if (!sessionId) throw new Error('getScenario: sessionId is required');
   return request(`/session/${sessionId}/scenario/`, {
-    method: "POST",
+    method: 'POST',
     body: {},
   });
 }
@@ -72,11 +72,9 @@ export function sendChoice({sessionId, scenarioId, choiceId, idempotencyKey}) {
   if (!scenarioId) throw new Error('sendChoice: scenarioId is required');
   if (!choiceId) throw new Error('sendChoice: choiceId is required');
   return request(`/session/${sessionId}/choice/`, {
-    method: "PATCH", 
-    body: { scenarioId, choiceId },
-    headers: idempotencyKey
-      ? { "Idempotency-Key": idempotencyKey }
-      : undefined,
+    method: 'PATCH',
+    body: {scenarioId, choiceId},
+    headers: idempotencyKey ? {'Idempotency-Key': idempotencyKey} : undefined,
   });
 }
 
@@ -87,15 +85,15 @@ export function sendFaction({sessionId, faction}) {
     throw new Error('sendFaction: faction must be rightists | resourceists | responsibilists');
   }
   return request(`/session/${sessionId}/faction`, {
-    method: 'POST', 
-    body: { faction },
+    method: 'POST',
+    body: {faction},
   });
 }
 
 // Create a new game session
 export async function createSession() {
-  return request("/session/", {
-    method: "POST",
-    body: {}, 
+  return request('/session/', {
+    method: 'POST',
+    body: {},
   });
 }
