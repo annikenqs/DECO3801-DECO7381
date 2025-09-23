@@ -5,7 +5,7 @@ from rest_framework import status
 
 from game.futureofmemory.services.query_service import run_rag
 from game.futureofmemory.services.firebase_service import (
-    create_session, get_session, add_scenario, update_scenarios, update_year
+    create_session, get_session, add_scenario, update_scenarios, update_year, update_faction
 )
 
 
@@ -25,6 +25,35 @@ class SessionView(APIView):
 
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class FactionView(APIView):
+    def post(self, request, session_id):
+        """
+        Set the faction for an existing session.
+        """
+        try:
+            data = request.data
+            faction = data.get("faction")
+
+            if faction not in ["rightists", "resourceists", "responsibilists"]:
+                return Response(
+                    {"error": "Invalid faction"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            session = get_session(session_id)
+            if not session:
+                return Response({"error": "Session not found"}, status=status.HTTP_404_NOT_FOUND)
+
+            update_faction(session_id, faction)
+
+            return Response({"faction": faction}, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
 
 
 class ScenarioView(APIView):
