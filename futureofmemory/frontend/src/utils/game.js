@@ -6,6 +6,8 @@ import {
   runTransaction,
   updateDoc,
   deleteField,
+  doc,
+  onSnapshot, // for listening to updates
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
 // sets the game status, taking in the game pin and the status string
@@ -15,6 +17,24 @@ export async function setGameStatus(pin, status) {
 
   // updates the 'status' field in Firebase (with the in-game status)
   await updateDoc(ref, {status, updatedAt: Date.now()});
+}
+
+// listens to game
+export function listenToGame(pin) {
+
+  const ref = doc(db, 'games', pin);
+
+  const unsubscribe = onSnapshot(doc(db, 'games',), (snap) => {
+    if(!snap.exists()) {
+        console.log("Game not found :(");
+        return;
+    }
+
+    const source = snap.metadata.hasPendingWrites ? "Local" : "Server";
+    console.log(source, " data: ", snap.data());
+  })
+  return unsubscribe;
+
 }
 
 // sets the worldview
