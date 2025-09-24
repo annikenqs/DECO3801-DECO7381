@@ -1,25 +1,36 @@
 // lobby.js
 
-const playersList = document.getElementById('players-list');
-const startButton = document.getElementById('start-game-btn');
+// Get Game PIN from URL
+const urlParams = new URLSearchParams(window.location.search);
+const pin = urlParams.get("pin") || "123456"; // fallback
+document.getElementById("game-pin-display").textContent = `Game PIN: ${pin}`;
 
-// Example players
-let players = ['Johanne', 'Anniken', 'Sam', 'Ihsan', 'Jiani', 'Zeyu'];
+const playersInfo = document.getElementById("players-info");
+const startButton = document.getElementById("start-game-btn");
 
-function renderPlayers() {
-  playersList.innerHTML = '';
-  players.forEach((player) => {
-    const p = document.createElement('p');
-    p.textContent = player;
-    playersList.appendChild(p);
-  });
+// Start at 0 players
+let playerCount = 0;
+const maxPlayers = 5;
+
+function updatePlayerCount() {
+  playersInfo.innerHTML = `<p>${playerCount} / ${maxPlayers} players joined</p>`;
 }
 
-// simulate players joining
-setTimeout(renderPlayers, 1000);
+// Initial state
+updatePlayerCount();
 
-startButton.addEventListener('click', () => {
-  alert('Game starting...');
-  // Redirect when ready
+// Simulate you joining after 1 second
+setTimeout(() => {
+  playerCount = 1;
+  updatePlayerCount();
+}, 1000);
+
+startButton.addEventListener("click", () => {
+  if (playerCount === 0) {
+    alert("At least 1 player must join before starting.");
+    return;
+  }
+  alert("Game starting...");
+  // Redirect to actual game page later
   // window.location.href = "game.html";
 });

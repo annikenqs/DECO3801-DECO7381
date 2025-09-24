@@ -3,22 +3,20 @@
 <head>
   <meta charset="UTF-8">
   <title>Lobby - Memory Futures</title>
-  <link rel="stylesheet" href="../css/style.css"> <!-- global shared -->
-  <link rel="stylesheet" href="../css/lobby.css"> <!-- lobby-specific -->
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="../css/lobby.css">
 </head>
 <body>
-  <!-- Same background + snow -->
   <div class="scene">
     <canvas id="snowCanvas"></canvas>
 
-    <!-- Menu-like block -->
     <div class="menu">
       <h1 class="title">MEMORY FUTURES</h1>
 
       <div class="lobby-container">
-        <h2 class="game-pin">Game PIN: 123456</h2>
-        <div class="players-list" id="players-list">
-          <p>Waiting for players...</p>
+        <h2 class="game-pin" id="game-pin-display">Game PIN:</h2>
+        <div class="players-info" id="players-info">
+          <p>0 / 5 players joined</p>
         </div>
         <button class="btn" id="start-game-btn">START GAME</button>
       </div>

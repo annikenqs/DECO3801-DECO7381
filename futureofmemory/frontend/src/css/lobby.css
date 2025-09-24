@@ -1,4 +1,3 @@
-/* Positioning lobby like menu */
 .lobby-container {
     margin-top: 40px;
     display: flex;
@@ -13,23 +12,22 @@
     color: var(--text);
   }
   
-  .players-list {
+  .players-info {
     margin: 20px auto;
     padding: 20px;
     width: min(320px, 70vw);
     background: rgba(0, 0, 0, 0.5);
     border: 2px solid var(--btn-brd);
     border-radius: 12px;
-    min-height: 150px;
+    min-height: 80px;
     display: flex;
-    flex-direction: column;
+    justify-content: center;
     align-items: center;
   }
   
-  .players-list p {
-    font-size: 1rem;
-    margin: 6px 0;
+  .players-info p {
+    font-size: 1.2rem;
+    margin: 0;
     color: var(--text);
   }
   
-  /* Button already styled in style.css */
