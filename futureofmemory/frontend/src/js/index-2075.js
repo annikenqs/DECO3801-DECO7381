@@ -2,8 +2,8 @@
 document.addEventListener('DOMContentLoaded', () => {
   const video = document.getElementById('introVideo');
   const replayBtn = document.getElementById('replayBtn');
-  const unmuteBtn = document.getElementById('unmuteBtn'); 
-  const skipBtn = document.getElementById('skipBtn'); 
+  const unmuteBtn = document.getElementById('unmuteBtn');
+  const skipBtn = document.getElementById('skipBtn');
 
   // Replay button
   if (replayBtn) {
@@ -15,7 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Unmute / Mute toggle 
+  // Unmute / Mute toggle
   if (unmuteBtn && video) {
     unmuteBtn.addEventListener('click', () => {
       video.muted = !video.muted;
