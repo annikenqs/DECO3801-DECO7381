@@ -3,7 +3,7 @@ html, body {
   margin: 0;
   padding: 0;
   height: 100%;
-  background: black; /* 确保没有白边 */
+  background: black; 
   overflow: hidden;
 }
 
@@ -24,8 +24,8 @@ html, body {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  display: block; /* 避免默认 inline video 产生空白 */
-  border: none;   /* 强制去掉可能的白边 */
+  display: block; 
+  border: none;   
   outline: none;
 }
 
@@ -39,11 +39,11 @@ html, body {
   justify-content: space-between;
   align-items: center;
   padding: 0 20px;
-  pointer-events: none; /* 不挡住视频点击 */
+  pointer-events: none; 
 }
 
 .btn {
-  pointer-events: auto; /* 允许按钮可点 */
+  pointer-events: auto; 
   background: rgba(0, 0, 0, 0.6);
   color: white;
   border: none;
