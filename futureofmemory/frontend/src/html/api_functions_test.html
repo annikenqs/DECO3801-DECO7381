@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>API Test Page</title>
+    <style>
+      body {
+        font-family: sans-serif;
+        margin: 2rem;
+      }
+      button {
+        margin: 0.25rem;
+        padding: 0.5rem 1rem;
+      }
+      #log {
+        background: #f4f4f4;
+        padding: 1rem;
+        margin-top: 1rem;
+        white-space: pre-wrap;
+      }
+    </style>
+  </head>
+  <body>
+    <h2>API Test Page</h2>
+    <button onclick="handleCreateSession()">Create Session</button>
+    <button onclick="handleGetScenario()">Get Scenario</button>
+    <button onclick="handleSendFaction()">Send Faction</button>
+    <div id="scenario"></div>
+    <pre id="log"></pre>
+
+    <script>
+      const BASE_URL = 'http://127.0.0.1:8000/api';
+
+      async function request(path, options) {
+        const res = await fetch(BASE_URL + path, {
+          headers: {'Content-Type': 'application/json', ...(options.headers || {})},
+          method: options.method,
+          body: options.body ? JSON.stringify(options.body) : undefined,
+        });
+        if (!res.ok) throw new Error(await res.text());
+        return res.json();
+      }
+
+      async function createSession() {
+        return request('/session/', {method: 'POST', body: {}});
+      }
+      function getScenario({sessionId}) {
+        return request(`/session/${sessionId}/scenario/`, {method: 'POST', body: {}});
+      }
+      function sendFaction({sessionId, faction}) {
+        return request(`/session/${sessionId}/faction`, {method: 'POST', body: {faction}});
+      }
+      function sendChoice({sessionId, scenarioId, choiceId}) {
+        return request(`/session/${sessionId}/choice/`, {
+          method: 'PATCH',
+          body: {scenarioId, choiceId},
+        });
+      }
+
+      let sessionId = null;
+      let currentScenario = null;
+
+      function appendLog(msg) {
+        document.getElementById('log').textContent += msg + '\n';
+      }
+
+      function renderScenario(scenario) {
+        const container = document.getElementById('scenario');
+        container.innerHTML = '';
+
+        if (!scenario) return;
+
+        const title = document.createElement('h3');
+        title.textContent = 'Scenario: ' + scenario.text;
+        container.appendChild(title);
+
+        const choicesDiv = document.createElement('div');
+        scenario.choices.forEach((choice) => {
+          const btn = document.createElement('button');
+          btn.textContent = choice.text;
+          btn.onclick = () => handleSendChoice(choice.id, scenario.id);
+          choicesDiv.appendChild(btn);
+        });
+        container.appendChild(choicesDiv);
+      }
+
+      window.handleCreateSession = async function () {
+        try {
+          const res = await createSession();
+          sessionId = res.sessionId;
+          appendLog('✅ Created session: ' + sessionId);
+        } catch (err) {
+          appendLog('❌ ' + err.message);
+        }
+      };
+
+      window.handleGetScenario = async function () {
+        try {
+          const res = await getScenario({sessionId});
+          currentScenario = res;
+          renderScenario(res);
+          appendLog('✅ Got scenario.');
+        } catch (err) {
+          appendLog('❌ ' + err.message);
+        }
+      };
+
+      window.handleSendFaction = async function () {
+        try {
+          const res = await sendFaction({sessionId, faction: 'rightists'});
+          appendLog('✅ Faction set.');
+        } catch (err) {
+          appendLog('❌ ' + err.message);
+        }
+      };
+
+      async function handleSendChoice(choiceId, scenarioId) {
+        try {
+          const res = await sendChoice({sessionId, scenarioId, choiceId});
+          currentScenario = res;
+          renderScenario(res);
+          appendLog('✅ Sent choice: ' + choiceId);
+        } catch (err) {
+          appendLog('❌ ' + err.message);
+        }
+      }
+    </script>
+  </body>
+</html>
