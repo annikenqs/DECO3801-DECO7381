@@ -1,10 +1,10 @@
 // multiplayer.js
 
-const newGameBtn = document.getElementById("new-game-btn");
-const joinBtn = document.getElementById("join-btn");
+const newGameBtn = document.getElementById('new-game-btn');
+const joinBtn = document.getElementById('join-btn');
 
 // Start a new multiplayer game
-newGameBtn.addEventListener("click", () => {
+newGameBtn.addEventListener('click', () => {
   // Generate random 6-digit PIN
   const pin = Math.floor(100000 + Math.random() * 900000);
   // Redirect to lobby with pin
@@ -12,11 +12,11 @@ newGameBtn.addEventListener("click", () => {
 });
 
 // Join existing game
-joinBtn.addEventListener("click", () => {
-  const pin = document.getElementById("game-pin").value.trim();
+joinBtn.addEventListener('click', () => {
+  const pin = document.getElementById('game-pin').value.trim();
 
   if (!pin) {
-    alert("Please enter a Game PIN");
+    alert('Please enter a Game PIN');
     return;
   }
 
