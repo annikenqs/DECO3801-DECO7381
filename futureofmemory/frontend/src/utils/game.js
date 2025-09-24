@@ -10,6 +10,13 @@ import {
   onSnapshot, // for listening to updates
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
+// change game flag state so that it belongs to the game that is currently running only
+// i.e. if there's two games, and one of them's a game that's currently in the lobby and another's a ongoing game,
+// then game #1 would have 'lobby'
+// and game # 2 would have 'active'
+
+// no 
+
 // sets the game status, taking in the game pin and the status string
 export async function setGameStatus(pin, status) {
   // creates a reference to the game document at /games/{pin}
