@@ -3,56 +3,36 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Draft — 2075</title>
-    <style>
-      html,
-      body {
-        height: 100%;
-      }
-      body {
-        margin: 0;
-        font-family: 'Courier New', monospace;
-        color: #fff;
-        background: #0b1020;
-        display: grid;
-        place-items: center;
-      }
-      .box {
-        text-align: center;
-        padding: 24px;
-      }
-      .msg {
-        margin: 0 0 1rem;
-        font-size: clamp(20px, 3vw, 32px);
-        line-height: 1.5;
-      }
-      .btn {
-        display: inline-block;
-        padding: 10px 16px;
-        border: 1px solid #ffffff80;
-        border-radius: 10px;
-        color: #fff;
-        text-decoration: none;
-        transition:
-          transform 0.15s ease,
-          background 0.2s ease,
-          border-color 0.2s ease;
-      }
-      .btn:hover {
-        transform: translateY(-2px);
-        background: #ffffff14;
-        border-color: #fff;
-      }
-      .btn:focus-visible {
-        outline: 3px solid #8ab4f8;
-        outline-offset: 3px;
-      }
-    </style>
+    <title>World 2075</title>
+    <link rel="stylesheet" href="../css/index-2075.css" />
   </head>
   <body>
-    <main class="box">
-      <h1 class="msg">The 2075 world introduction video is in production...</h1>
-      <a class="btn" href="./scenario1.html">Sketch 2075</a>
+    <main class="video-wrap" role="region" aria-label="World 2075 intro video">
+      <!-- Autoplay requires muted + playsinline -->
+      <video
+        id="introVideo"
+        class="video"
+        src="../media/World2075.mp4"
+        autoplay
+        muted
+        playsinline
+        preload="auto"
+      >
+        Your browser does not support HTML5 video.
+      </video>
+
+      <!-- Controls overlay -->
+      <div class="controls">
+        <button id="replayBtn" class="btn btn-left" type="button">⟲ Replay</button>
+
+        <!-- Anchor fallback (skip) -->
+        <a id="skipLink" class="btn btn-right" href="./scenario1.html">Skip →</a>
+
+        <!-- Unmute button -->
+        <button id="unmuteBtn" class="btn btn-center" type="button">🔊 Turn on sound</button>
+      </div>
     </main>
+
+    <script src="../js/index-2075.js"></script>
   </body>
 </html>
