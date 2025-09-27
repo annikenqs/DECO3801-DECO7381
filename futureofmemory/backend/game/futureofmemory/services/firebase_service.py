@@ -22,36 +22,48 @@ def integer_to_string(number: int) -> str:
 def increment_pin(number: int) -> int:
     return 0 if number >= 999999 else number + 1
 
-# gets the pin
-def get_pin(pin: str) -> str:
+# uses Firestore's Transaction to maintain last pin
 
-    doc_ref = db.collection("games").document(pin).get()
-
-    # if the document doesn't exist, return none
-    if not doc_ref.exists:
-        return None
-    
-    value = doc_ref.get("pin")
-    return value
-
+# @firestore.transactional: ensures the function can be run safely as a Firestore Transaction
 @firestore.transactional
 def allocate_pin_transaction(transaction: firestore.Transaction) -> str:
+
+    # uses a pin counter document
+
+    # 1. sets up a 'pin counter' object and names it as counter reference
+    # 2. obtains the reference itself
+    # 3. obtains the last snapshot if it exists (which is the pin)
+    # 4. increments and sets the pin to a string
+    # 5. sets the transaction as:
+    # 1. from the pin-counter reference
+    # the last value is the new value
+    # and merge this
+
+    # 1. sets up a 'pin counter' object and names it as counter reference
     counter_reference = db.collection("meta").document("pin-counter")
+    # 2. obtains the reference itself
     snap = counter_reference.get(transaction=transaction)
 
+    # gets the last snapshot if it exists, which is the pin, (otherwise makes a last snapshot of -1, 
+    # which is incremented to 000000)
     last = snap.get("last") if snap.exists else -1
 
+    # increment and set pin to string
     new_val = increment_pin(last)
     new_pin = integer_to_string(new_val)
 
+    # sets the transaction as:
+    # the pin counter object, the last value (which is the new value), and a merge command which enables merging
     transaction.set(counter_reference, {"last": new_val}, merge=True)
+    # return the new pin
     return new_pin
 
+# allocates a pin
 def allocate_pin() -> str:
     tx = db.transaction()
     return allocate_pin_transaction(tx)
 
-
+# creates a new session
 def create_session(faction: str, year: int, status: str, pin: str, numberofplayers: int):
     doc_ref = db.collection("games").document(pin)
     doc_ref.set({
@@ -64,7 +76,7 @@ def create_session(faction: str, year: int, status: str, pin: str, numberofplaye
     })
     return {"pin": pin, "faction": faction, "year": year}
 
-# helpers
+# helpers - gets the pin
 def get_pin(doc_id: str) -> str:
     doc_ref = db.collection("games").document(doc_id)
     snapshot = doc_ref.get()
@@ -72,6 +84,7 @@ def get_pin(doc_id: str) -> str:
     if not snapshot.exists:
         return ValueError("Session ID doesn't exist")
 
+# update pin
 def update_pin(doc_id: str) -> str:
     doc_ref = db.collection("games").document(doc_id)
     snapshot = doc_ref.get()
@@ -91,7 +104,7 @@ def update_pin(doc_id: str) -> str:
 
 def game_update(pin):
     doc = db.collection("games").document(pin).get()
-    if (doc.get("numberofplayers") >= 1 or (doc.get("year") == None)): # since 
+    if (doc.get("numberofplayers") >= 1 or (doc.get("year") == None)): 
         db.collection("games").document(pin).update({"status": "lobby"})
     elif (doc.get("year") >= 2075):
         db.collection("games").document(pin).update({"status": "active"})
