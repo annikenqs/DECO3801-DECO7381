@@ -13,19 +13,6 @@ if not firebase_admin._apps:
 
 db = firestore.client()
 
-def create_session(faction: str, year: int, status: str, pin: str, numberofplayers: int):
-    doc_ref = db.collection("games").document(pin)
-    doc_ref.set({
-        "pin": pin,
-        "status": status,
-        "numberofplayers": numberofplayers,
-        "faction": faction,
-        "year": year,
-        "scenarios": []
-    })
-    return {"pin": pin, "faction": faction, "year": year}
-
-
 # converts an integer to a six-digit string
 # i.e. 1 => 000001, 3 => 000003, 102345 => 102345
 def integer_to_string(number: int) -> str:
@@ -38,47 +25,69 @@ def increment_pin(number: int) -> int:
 # gets the pin
 def get_pin(pin: str) -> str:
 
-    doc = db.collection("games").document(pin)
-    doc_ref = doc.get()
+    doc_ref = db.collection("games").document(pin).get()
 
     # if the document doesn't exist, return none
     if not doc_ref.exists:
         return None
     
     value = doc_ref.get("pin")
+    return value
 
-    # if the pin doesn't exist, make one (start of very first game)
-    if value == None:
-        doc.update({"pin":integer_to_string(0)})
-        return integer_to_string(0)
-    else:
-        return str(value)
+@firestore.transactional
+def allocate_pin_transaction(transaction: firestore.Transaction) -> str:
+    counter_reference = db.collection("meta").document("pin-counter")
+    snap = counter_reference.get(transaction=transaction)
 
-# updates the pin
-def update_pin(doc_id: str):
-    doc = db.collection("games").document(doc_id)
+    last = snap.get("last") if snap.exists else -1
 
-    current_pin = get_pin(doc_id)
-
-    if current_pin is None:
-        return None
-    
-    try:
-        current_value = int(current_pin)
-    except (TypeError, ValueError):
-        current_value = -1
-    
-    new_val = increment_pin(current_value)
+    new_val = increment_pin(last)
     new_pin = integer_to_string(new_val)
-    doc.update({"pin":new_pin})
 
+    transaction.set(counter_reference, {"last": new_val}, merge=True)
     return new_pin
-    
 
-# to do:
-# create "status"
-# create "numberOfPlayers" (limit = 5)
-# create "choices"
+def allocate_pin() -> str:
+    tx = db.transaction()
+    return allocate_pin_transaction(tx)
+
+
+def create_session(faction: str, year: int, status: str, pin: str, numberofplayers: int):
+    doc_ref = db.collection("games").document(pin)
+    doc_ref.set({
+        "pin": pin,
+        "status": status,
+        "numberofplayers": numberofplayers,
+        "faction": faction,
+        "year": year,
+        "scenarios": []
+    })
+    return {"pin": pin, "faction": faction, "year": year}
+
+# helpers
+def get_pin(doc_id: str) -> str:
+    doc_ref = db.collection("games").document(doc_id)
+    snapshot = doc_ref.get()
+
+    if not snapshot.exists:
+        return ValueError("Session ID doesn't exist")
+
+def update_pin(doc_id: str) -> str:
+    doc_ref = db.collection("games").document(doc_id)
+    snapshot = doc_ref.get()
+
+    if not snapshot.exists:
+        return ValueError("Session ID doesn't exist")
+    
+    current_pin = snapshot.get("pin")
+    try:
+        current_val = int(current_pin)
+    except (TypeError, ValueError):
+        current_val = -1
+    
+    new_pin = integer_to_string(current_val)
+    doc_ref.update({"pin":new_pin})
+    return new_pin
 
 def game_update(pin):
     doc = db.collection("games").document(pin).get()

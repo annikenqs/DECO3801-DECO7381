@@ -5,7 +5,7 @@ from rest_framework import status
 
 from game.futureofmemory.services.query_service import run_rag
 from game.futureofmemory.services.firebase_service import (
-    create_session, get_session, add_scenario, update_scenarios, update_year, update_faction, update_pin
+    create_session, get_session, add_scenario, update_scenarios, update_year, update_faction, allocate_pin
 )
 
 
@@ -18,7 +18,9 @@ class SessionView(APIView):
             data = request.data
             faction = data.get("faction", "Unknown")
             year = data.get("year", 2075)
-            pin = data.get("pin") or update_pin(data.get("pin"))
+
+            # pin options
+            pin = data.get("pin") or allocate_pin()
 
             session = create_session(faction, year, "lobby", pin, numberofplayers=5)
 
