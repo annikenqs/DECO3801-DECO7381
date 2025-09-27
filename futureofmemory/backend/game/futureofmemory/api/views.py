@@ -1,27 +1,27 @@
-from game.futureofmemory.services.firebase_service import *
+import uuid
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 
 from game.futureofmemory.services.query_service import run_rag
 from game.futureofmemory.services.firebase_service import (
-    create_session, get_session, add_scenario, update_scenarios, update_year, update_faction,
-    get_lobby_status, join_lobby, update_pin
+    create_session, get_session, add_scenario, update_scenarios, update_year, update_faction, update_pin
 )
 
 
 class SessionView(APIView):
     def post(self, request):
         """
-        Create a new game session in Firebase using a 6-digit PIN.
+        Create a new game session in Firebase.
         """
         try:
             data = request.data
-            pin = data.get("pin") or update_pin()   
             faction = data.get("faction", "Unknown")
             year = data.get("year", 2075)
+            pin = data.get("pin") or update_pin(data.get("pin"))
 
-            session = create_session(pin, faction, year, status="lobby", numberOfPlayers=0)
+            session = create_session(faction, year, "lobby", pin, numberofplayers=5)
+
             return Response(session, status=status.HTTP_201_CREATED)
 
         except Exception as e:
@@ -29,7 +29,7 @@ class SessionView(APIView):
 
 
 class FactionView(APIView):
-    def post(self, request, pin):
+    def post(self, request, session_id):
         """
         Set the faction for an existing session.
         """
@@ -43,26 +43,29 @@ class FactionView(APIView):
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-            session = get_session(pin)
+            session = get_session(session_id)
             if not session:
-                return Response({"error": "Game not found"}, status=status.HTTP_404_NOT_FOUND)
+                return Response({"error": "Session not found"}, status=status.HTTP_404_NOT_FOUND)
 
-            update_faction(pin, faction)
+            update_faction(session_id, faction)
+
             return Response({"faction": faction}, status=status.HTTP_200_OK)
 
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+
+
 class ScenarioView(APIView):
-    def post(self, request, pin):
+    def post(self, request, session_id):
         """
         Generate the first scenario and save it in Firebase.
         """
         try:
-            session = get_session(pin)
+            session = get_session(session_id)
             if not session:
-                return Response({"error": "Game not found"}, status=status.HTTP_404_NOT_FOUND)
+                return Response({"error": "Session not found"}, status=status.HTTP_404_NOT_FOUND)
 
             # Call RAG to generate a scenario
             result = run_rag(
@@ -70,7 +73,7 @@ class ScenarioView(APIView):
                 role="scenario",
                 year=session["year"]
             )
-
+            
             scenario_data = result.get("scenario", {})
             scenario_text = scenario_data.get("scenario_text", "No scenario generated")
             choices = scenario_data.get("choices", [])
@@ -82,7 +85,7 @@ class ScenarioView(APIView):
                 "choices": choices,
                 "chosen": None
             }
-            add_scenario(pin, scenario)
+            add_scenario(session_id, scenario)
 
             return Response(scenario, status=status.HTTP_200_OK)
 
@@ -91,7 +94,7 @@ class ScenarioView(APIView):
 
 
 class ChoiceView(APIView):
-    def patch(self, request, pin):
+    def patch(self, request, session_id):
         """
         Mark a choice as chosen, then generate the next scenario.
         """
@@ -100,17 +103,17 @@ class ChoiceView(APIView):
             choice_id = data.get("choiceId")
             scenario_id = data.get("scenarioId")
 
-            session = get_session(pin)
+            session = get_session(session_id)
             if not session:
-                return Response({"error": "Game not found"}, status=status.HTTP_404_NOT_FOUND)
+                return Response({"error": "Session not found"}, status=status.HTTP_404_NOT_FOUND)
 
             # Update last scenario's chosen choice
             scenarios = session["scenarios"]
             for s in scenarios:
                 if s["id"] == scenario_id:
                     s["chosen"] = choice_id
-            update_scenarios(pin, scenarios)
-
+            update_scenarios(session_id, scenarios)
+            
             # Calculate new year
             new_year = session["year"] + 1
 
@@ -134,25 +137,11 @@ class ChoiceView(APIView):
                 "choices": choices,
                 "chosen": None
             }
-            add_scenario(pin, new_scenario)
-
-            update_year(pin, new_year)
+            add_scenario(session_id, new_scenario)
+            
+            update_year(session_id, new_year)
 
             return Response(new_scenario, status=status.HTTP_200_OK)
 
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
-class LobbyStatusView(APIView):
-    def get(self, request, pin):
-        result = get_lobby_status(pin)
-        if not result:
-            return Response({"ok": False, "msg": "Invalid PIN"}, status=404)
-
-class LobbyJoinView(APIView):
-    def post(self, request, pin):
-        result = join_lobby(pin)
-        if "error" in result:
-            return Response({"ok": False, "msg": result["error"]}, status=400)
-        return Response({"ok": True, **result})

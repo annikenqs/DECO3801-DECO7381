@@ -48,7 +48,7 @@ def get_pin(pin: str) -> str:
     value = doc_ref.get("pin")
 
     # if the pin doesn't exist, make one (start of very first game)
-    if value is None:
+    if value == None:
         doc.update({"pin":integer_to_string(0)})
         return integer_to_string(0)
     else:
@@ -56,31 +56,23 @@ def get_pin(pin: str) -> str:
 
 # updates the pin
 def update_pin(doc_id: str):
+    doc = db.collection("games").document(doc_id)
 
-    if doc_id is None:
+    current_pin = get_pin(doc_id)
+
+    if current_pin is None:
         return None
     
-    doc = db.collection("games").document(doc_id) # which is the pin
+    try:
+        current_value = int(current_pin)
+    except (TypeError, ValueError):
+        current_value = -1
+    
+    new_val = increment_pin(current_value)
+    new_pin = integer_to_string(new_val)
+    doc.update({"pin":new_pin})
 
-    def transaction_logic(trans):
-        snap = doc.get(transaction=trans) # obtains a document snapshot
-        if not snap.exists:
-            # Option 1: create it with 000000
-            zero = integer_to_string(0)
-            trans.set(doc, {"pin": zero}, merge=True)
-            return zero
-
-        value = snap.get("pin")
-        try:
-            cur = int(value) # try converting value to int
-        except (TypeError, ValueError): # if errors:
-            cur = -1 # increment transforms -1 to 0 => 000000                              
-
-        new_val = increment_pin(cur)
-        new_pin = integer_to_string(new_val)
-        trans.update(doc, {"pin": new_pin})
-        return new_pin
-    return db.transaction()(transaction_logic)
+    return new_pin
     
 
 # to do:
@@ -124,3 +116,11 @@ def update_year(pin: str, year: int):
 
 def update_faction(pin: str, faction: str):
     db.collection("games").document(pin).update({"faction": faction})
+
+def get_lobby_status(pin: str):
+    # TODO: implement later
+    return None
+
+def join_lobby(pin: str, player_id=None, nickname=None):
+    # TODO: implement later
+    return {"ok": True, "msg": "Placeholder"}
