@@ -5,7 +5,7 @@ from rest_framework import status
 
 from game.futureofmemory.services.query_service import run_rag
 from game.futureofmemory.services.firebase_service import (
-    create_session, get_session, add_scenario, update_scenarios, update_year, update_faction, allocate_pin
+    create_session, get_session, add_scenario, update_scenarios, update_year, update_faction, allocate_pin, get_pin
 )
 
 
