@@ -46,9 +46,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // mapping next page
   const NEXT_BY_MODE = {
-    rightists: 'rightists.html',
-    resourceists: 'resourceists.html',
-    responsibilists: 'responsibilists.html',
+    rightists: 'GeneralScenario.html',
+    resourceists: 'GeneralScenario.html',
+    responsibilists: 'GeneralScenario.html',
   };
 
   choices.forEach((btn) => {
