@@ -4,124 +4,161 @@
     <meta charset="UTF-8" />
     <title>API Test Page</title>
     <style>
-      body {
-        font-family: sans-serif;
-        margin: 2rem;
-      }
-      button {
-        margin: 0.25rem;
-        padding: 0.5rem 1rem;
-      }
-      #log {
-        background: #f4f4f4;
-        padding: 1rem;
-        margin-top: 1rem;
-        white-space: pre-wrap;
-      }
+      body { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Courier New", monospace; margin: 1.5rem; }
+      button { margin: 0.25rem; padding: 0.5rem 1rem; }
+      #log { background: #0b1b2b; color: #cfe3ff; padding: 1rem; margin-top: 1rem; white-space: pre-wrap; border-radius: 8px; }
+      #scenario { margin-top: 1rem; }
+      .choice-btn { display:inline-block; margin:.25rem .25rem; }
+      .row { display:flex; align-items:center; gap:.5rem; flex-wrap: wrap; }
+      label { user-select:none; }
     </style>
   </head>
   <body>
     <h2>API Test Page</h2>
-    <button onclick="handleCreateSession()">Create Session</button>
-    <button onclick="handleGetScenario()">Get Scenario</button>
-    <button onclick="handleSendFaction()">Send Faction</button>
+
+    <div class="row">
+      <button onclick="handleCreateSession()">Create Session</button>
+      <button onclick="handleGetScenario()">Get Scenario</button>
+      <button onclick="handleSendFaction()">Send Faction (rightists)</button>
+      <label><input id="withCreds" type="checkbox"> credentials: include</label>
+      <label>Base:
+        <input id="baseUrl" size="34" value="http://127.0.0.1:8000/api">
+      </label>
+    </div>
+
+    <div id="sessionBox">Session: <code id="sid">—</code></div>
+    <div id="progress">Year: —</div>
+
     <div id="scenario"></div>
     <pre id="log"></pre>
 
     <script>
-      const BASE_URL = 'http://127.0.0.1:8000/api';
+      // ---- utilities ----
+      const byId = (id) => document.getElementById(id);
+      const log = (msg) => { byId('log').textContent += msg + '\n'; };
+      const setYear = (y) => { byId('progress').textContent = 'Year: ' + (y ?? '—'); };
+      const mkId = () => (self.crypto?.randomUUID?.()) || `id_${Date.now()}_${Math.random().toString(16).slice(2)}`;
 
-      async function request(path, options) {
-        const res = await fetch(BASE_URL + path, {
-          headers: {'Content-Type': 'application/json', ...(options.headers || {})},
-          method: options.method,
-          body: options.body ? JSON.stringify(options.body) : undefined,
-        });
-        if (!res.ok) throw new Error(await res.text());
-        return res.json();
+      function base() { return byId('baseUrl').value.replace(/\/+$/,''); }
+      function opts(method, body, extraHeaders) {
+        const withCreds = byId('withCreds').checked;
+        return {
+          method,
+          headers: { 'Content-Type': 'application/json', ...(extraHeaders || {}) },
+          body: body ? JSON.stringify(body) : undefined,
+          credentials: withCreds ? 'include' : 'same-origin'
+        };
       }
 
+      async function request(path, method, body, headers) {
+        const res = await fetch(base() + path, opts(method, body, headers));
+        const text = await res.text();
+        let data = null;
+        try { data = text ? JSON.parse(text) : null; } catch { /* non-JSON */ }
+        if (!res.ok) {
+          const msg = (data && (data.error || data.message)) || text || `HTTP ${res.status}`;
+          throw new Error(msg);
+        }
+        return data;
+      }
+
+      // ---- API shims (match your FutureMemory API) ----
       async function createSession() {
-        return request('/session/', {method: 'POST', body: {}});
+        // POST /session/ -> { sessionId }
+        return request('/session/', 'POST', {});
       }
-      function getScenario({sessionId}) {
-        return request(`/session/${sessionId}/scenario/`, {method: 'POST', body: {}});
+      function getScenario({ sessionId }) {
+        // POST /session/{sid}/scenario/ -> { scenarioId|id, text|content, choices?, year? }
+        return request(`/session/${sessionId}/scenario/`, 'POST', {});
       }
-      function sendFaction({sessionId, faction}) {
-        return request(`/session/${sessionId}/faction`, {method: 'POST', body: {faction}});
+      function sendFaction({ sessionId, faction }) {
+        return request(`/session/${sessionId}/faction`, 'POST', { faction });
       }
-      function sendChoice({sessionId, scenarioId, choiceId}) {
-        return request(`/session/${sessionId}/choice/`, {
-          method: 'PATCH',
-          body: {scenarioId, choiceId},
-        });
+      function sendChoice({ sessionId, scenarioId, choiceId }) {
+        // PATCH /session/{sid}/choice/ -> { nextScenario? } or -> new "current scenario"
+        return request(`/session/${sessionId}/choice/`, 'PATCH', { scenarioId, choiceId }, { 'Idempotency-Key': mkId() });
       }
 
+      // ---- state ----
       let sessionId = null;
       let currentScenario = null;
 
-      function appendLog(msg) {
-        document.getElementById('log').textContent += msg + '\n';
-      }
-
-      function renderScenario(scenario) {
-        const container = document.getElementById('scenario');
+      function renderScenario(s) {
+        const container = byId('scenario');
         container.innerHTML = '';
+        if (!s) return;
 
-        if (!scenario) return;
+        // backend field compatibility
+        const scId = s.scenarioId ?? s.id ?? null;
+        const text = s.text ?? s.content ?? '(no text)';
+        const year = s.year;
+        if (typeof year === 'number') setYear(year);
 
         const title = document.createElement('h3');
-        title.textContent = 'Scenario: ' + scenario.text;
+        title.textContent = 'Scenario: ' + text;
         container.appendChild(title);
 
-        const choicesDiv = document.createElement('div');
-        scenario.choices.forEach((choice) => {
+        const choices = Array.isArray(s.choices) ? s.choices : [];
+        const wrap = document.createElement('div');
+        choices.forEach((c, i) => {
           const btn = document.createElement('button');
-          btn.textContent = choice.text;
-          btn.onclick = () => handleSendChoice(choice.id, scenario.id);
-          choicesDiv.appendChild(btn);
+          btn.className = 'choice-btn';
+          const id = c.id ?? ['A','B','C'][i];
+          const label = c.label ?? c.text ?? `Option ${id}`;
+          btn.textContent = `${id}: ${label}`.replace(/^([ABC]):\s*/,'$1: ');
+          btn.onclick = () => handleSendChoice(id, scId);
+          wrap.appendChild(btn);
         });
-        container.appendChild(choicesDiv);
+        container.appendChild(wrap);
       }
 
+      // ---- handlers ----
       window.handleCreateSession = async function () {
         try {
           const res = await createSession();
-          sessionId = res.sessionId;
-          appendLog('✅ Created session: ' + sessionId);
+          sessionId = res.sessionId || res.id;
+          byId('sid').textContent = sessionId || '—';
+          log('✅ Created session: ' + sessionId);
         } catch (err) {
-          appendLog('❌ ' + err.message);
+          log('❌ ' + err.message);
         }
       };
 
       window.handleGetScenario = async function () {
         try {
-          const res = await getScenario({sessionId});
+          if (!sessionId) throw new Error('No sessionId. Click "Create Session" first.');
+          const res = await getScenario({ sessionId });
           currentScenario = res;
           renderScenario(res);
-          appendLog('✅ Got scenario.');
+          log('✅ Got scenario.');
         } catch (err) {
-          appendLog('❌ ' + err.message);
+          log('❌ ' + err.message);
         }
       };
 
       window.handleSendFaction = async function () {
         try {
-          const res = await sendFaction({sessionId, faction: 'rightists'});
-          appendLog('✅ Faction set.');
+          if (!sessionId) throw new Error('No sessionId. Click "Create Session" first.');
+          await sendFaction({ sessionId, faction: 'rightists' });
+          log('✅ Faction set to rightists.');
         } catch (err) {
-          appendLog('❌ ' + err.message);
+          log('❌ ' + err.message);
         }
       };
 
       async function handleSendChoice(choiceId, scenarioId) {
         try {
-          const res = await sendChoice({sessionId, scenarioId, choiceId});
-          currentScenario = res;
-          renderScenario(res);
-          appendLog('✅ Sent choice: ' + choiceId);
+          if (!sessionId) throw new Error('No sessionId.');
+          if (!scenarioId) throw new Error('No scenarioId.');
+          const res = await sendChoice({ sessionId, scenarioId, choiceId });
+
+          // Some backends return { nextScenario }, others return the new current scenario
+          const next = res?.nextScenario || res;
+          currentScenario = next;
+          renderScenario(next);
+          log('✅ Sent choice: ' + choiceId);
         } catch (err) {
-          appendLog('❌ ' + err.message);
+          log('❌ ' + err.message);
         }
       }
     </script>
