@@ -62,17 +62,3 @@ choice_maker_prompt = PromptTemplate.from_template(
     """
 )
 
-outcome_updater_prompt = PromptTemplate.from_template(
-    BASE_PROMPT + """
-    You are the Outcome Generator.
-    Scenario:
-    {scenario}
-    Choices:
-    {choices}
-    Output JSON:
-    {{
-        "choice_id": {choice_id},
-        "outcome_text": "..."
-    }}
-    """
-)

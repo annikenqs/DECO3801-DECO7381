@@ -11,7 +11,6 @@ from .llm_service import (
     SYSTEM_RULES,
     scenario_writer_prompt,
     choice_maker_prompt,
-    outcome_updater_prompt
 )
 
 vector_store = None
@@ -40,7 +39,6 @@ class State(TypedDict):
     question: str
     context: List[Document]
     answer: str
-    role: str
     scenario: str
     choices: List[dict]
     choice_id: int
@@ -74,52 +72,53 @@ def generate(state: State):
     vs, llm = init_rag()
     docs_content = "\n\n".join(doc.page_content for doc in state["context"])
     year = state.get("year", 2075)
-    role = state["role"]
 
-    if role == "scenario":
-        sources = list({(doc.metadata or {}).get("source") for doc in state["context"] if doc.metadata})
-        if not sources:
-            sources = ["(no_source_found)"]
-        citations_literal = ", ".join([f'"{s}"' for s in sources])
-        prompt = scenario_writer_prompt.format(
-            context=docs_content,
-            year=year,
-            system_rules=SYSTEM_RULES,
-            citations=citations_literal
-        )
-    elif role == "choices":
-        prompt = choice_maker_prompt.format(
-            context=docs_content,
-            year=year,
-            system_rules=SYSTEM_RULES,
-            scenario=state.get("scenario", "")
-        )
-    elif role == "outcome":
-        prompt = outcome_updater_prompt.format(
-            context=docs_content,
-            system_rules=SYSTEM_RULES,
-            scenario=state.get("scenario", ""),
-            choices=state.get("choices", ""),
-            choice_id=state.get("choice_id", None)
-        )
-    else:
-        raise ValueError(f"Unknown role: {role}")
+    sources = list({(doc.metadata or {}).get("source") for doc in state["context"] if doc.metadata})
+    if not sources:
+        sources = ["(no_source_found)"]
+    citations_literal = ", ".join([f'"{s}"' for s in sources])
+    
+    scenario_prompt = scenario_writer_prompt.format(
+        context=docs_content,
+        year=year,
+        system_rules=SYSTEM_RULES,
+        citations=citations_literal
+    )
+    
+    scenario_response = llm.invoke(scenario_prompt)
+    scenario_raw = scenario_response.content.strip()
+    scenario_parsed = safe_parse_response(scenario_raw)
+    scenario_text = scenario_parsed.get("scenario_text", "No scenario generated")
+    citations = scenario_parsed.get("citations", [])
 
-    response = llm.invoke(prompt)
-    raw = response.content.strip()
-    parsed = safe_parse_response(raw)
-
-    return {"answer": raw, role: parsed}
-
+    choice_prompt = choice_maker_prompt.format(
+        context=docs_content,
+        year=year,
+        system_rules=SYSTEM_RULES,
+        scenario=scenario_text
+    )
+    
+    choice_response = llm.invoke(choice_prompt)
+    choice_raw = choice_response.content.strip()
+    choice_parsed = safe_parse_response(choice_raw)
+    choices = choice_parsed.get("choices", [])
+    
+    return {
+        "scenario": {
+            "year": year,
+            "scenario_text": scenario_text,
+            "citations": citations,
+            "choices": choices
+        }
+    }
 
 graph_builder = StateGraph(State).add_sequence([retrieve, generate])
 graph_builder.add_edge(START, "retrieve")
 graph = graph_builder.compile()
 
-def run_rag(question: str, role: str, year: int = 2075, scenario=None, choices=None, choice_id=None):
+def run_rag(question: str, year: int = 2075, scenario=None, choices=None, choice_id=None):
     state = {
         "question": question,
-        "role": role,
         "year": year,
         "scenario": scenario,
         "choices": choices,
