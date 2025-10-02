@@ -43,6 +43,7 @@ class State(TypedDict):
     choices: List[dict]
     choice_id: int
     year: int
+    faction: str 
 
 def retrieve(state: State):
     vs, _ = init_rag()
@@ -72,6 +73,15 @@ def generate(state: State):
     vs, llm = init_rag()
     docs_content = "\n\n".join(doc.page_content for doc in state["context"])
     year = state.get("year", 2075)
+    faction = state.get("faction", "Unknown")
+    
+    if not state.get("scenario") or not state.get("choice_id"):
+        previous_context = ""
+    else:
+        previous_context = f"""
+        Previous scenario: {state['scenario']}
+        Player chose: {state['choice_id']}
+        """
 
     sources = list({(doc.metadata or {}).get("source") for doc in state["context"] if doc.metadata})
     if not sources:
@@ -82,7 +92,9 @@ def generate(state: State):
         context=docs_content,
         year=year,
         system_rules=SYSTEM_RULES,
-        citations=citations_literal
+        citations=citations_literal,
+        previous_context=previous_context,
+        faction=faction
     )
     
     scenario_response = llm.invoke(scenario_prompt)
@@ -93,7 +105,6 @@ def generate(state: State):
 
     choice_prompt = choice_maker_prompt.format(
         context=docs_content,
-        year=year,
         system_rules=SYSTEM_RULES,
         scenario=scenario_text
     )
@@ -116,12 +127,13 @@ graph_builder = StateGraph(State).add_sequence([retrieve, generate])
 graph_builder.add_edge(START, "retrieve")
 graph = graph_builder.compile()
 
-def run_rag(question: str, year: int = 2075, scenario=None, choices=None, choice_id=None):
+def run_rag(question: str, year: int = 2075, scenario=None, choices=None, choice_id=None, faction="Unknown"):
     state = {
         "question": question,
         "year": year,
         "scenario": scenario,
         "choices": choices,
-        "choice_id": choice_id
+        "choice_id": choice_id,
+        "faction": faction
     }
     return graph.invoke(state)
