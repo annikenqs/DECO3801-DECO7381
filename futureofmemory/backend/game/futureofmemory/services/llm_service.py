@@ -22,7 +22,12 @@ SYSTEM_RULES = {
     ],
     "constraints": [
         "Scenarios must stay realistic for neurotechnology research.",
-    ]
+    ],
+    "factions": {
+        "rightists": "Sees memory as a right: not for sale, need explicit consent, revocable at any time.",
+        "responsibilists": "Sees memory as a common responsibility. The community co-governs and cares for memory together.",
+        "resourceists": "Sees memory as a resource. Memories can be traded, sold, and used for profit."
+    }
 }
 
 BASE_PROMPT = """
@@ -33,24 +38,59 @@ Context:
 {context}
 """
 
-scenario_writer_prompt = PromptTemplate.from_template(
+first_scenario_prompt = PromptTemplate.from_template(
     BASE_PROMPT + """
     You are the Scenario Writer.
-    Write a ~80 word scenario describing a neurotechnology-related event in the year {year}.
+    Write the first ~40 word scenario for the year: {year}.
+    
+    The chosen faction: {faction} should shape the perspective and concerns in the story.
+    Since this is the opening, introduce the world vividly:
+    - Show a dramatic neurotech incident (scandal, invention, protest, accident etc).
+    - Make it personal and emotional, not abstract or academic.
+    
     Output JSON:
     {{
-        "year": {year},
         "scenario_text": "...",
         "citations": [{citations}]
     }}
     """
 )
 
+next_scenario_prompt = PromptTemplate.from_template(
+    BASE_PROMPT + """
+    You are the Scenario Writer.
+    Write a ~40 word scenario for the year {year}. Start with: "In {year}, ...".
+
+    Strict rules:
+    This must directly continue from the previous scenario and the player's chosen response.
+    Do not restart. Do not ignore.
+
+    Previous scenario:
+    "{previous_scenario}"
+
+    Player's chosen response:
+    "{chosen_choice}"
+
+    Escalate the story:
+    - Show unexpected consequences of the choice (e.g. backlash, unintended effects, new actors entering the scene).
+    - Add variety: not just scandals and protests, but also breakthroughs, accidents, personal tragedies, underground movements, black markets etc.
+    - Make it emotional and vivid, like a human drama
+    - Keep it ~40 words
+
+    Output JSON ONLY:
+    {{
+        "scenario_text": "...",
+        "citations": [{citations}]
+    }}
+    """
+)
+
+
 choice_maker_prompt = PromptTemplate.from_template(
     BASE_PROMPT + """
-    You are the Choice Maker.
-    Scenario:
-    {scenario}
+    You are the Choice Maker. Given the following scenario: {scenario}, write exactly 3 distinct choices a player can make in response to the scenario.
+    The choices should be realistic and reflect different perspectives, as well as the chosen faction: {faction}. They should be concise (max 20 words each).
+    
     Output JSON:
     {{
         "choices": [

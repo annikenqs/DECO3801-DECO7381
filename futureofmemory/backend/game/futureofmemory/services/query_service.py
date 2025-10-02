@@ -9,7 +9,8 @@ from .chroma_service import init_chroma, load_documents
 from .llm_service import (
     get_llm,
     SYSTEM_RULES,
-    scenario_writer_prompt,
+    first_scenario_prompt,
+    next_scenario_prompt,
     choice_maker_prompt,
 )
 
@@ -41,7 +42,7 @@ class State(TypedDict):
     answer: str
     scenario: str
     choices: List[dict]
-    choice_id: int
+    chosen_choice: str
     year: int
     faction: str 
 
@@ -74,28 +75,32 @@ def generate(state: State):
     docs_content = "\n\n".join(doc.page_content for doc in state["context"])
     year = state.get("year", 2075)
     faction = state.get("faction", "Unknown")
-    
-    if not state.get("scenario") or not state.get("choice_id"):
-        previous_context = ""
-    else:
-        previous_context = f"""
-        Previous scenario: {state['scenario']}
-        Player chose: {state['choice_id']}
-        """
 
     sources = list({(doc.metadata or {}).get("source") for doc in state["context"] if doc.metadata})
     if not sources:
         sources = ["(no_source_found)"]
     citations_literal = ", ".join([f'"{s}"' for s in sources])
     
-    scenario_prompt = scenario_writer_prompt.format(
-        context=docs_content,
-        year=year,
-        system_rules=SYSTEM_RULES,
-        citations=citations_literal,
-        previous_context=previous_context,
-        faction=faction
-    )
+    chosen_choice_text = state.get("chosen_choice") or "None"
+    
+    if not state.get("scenario") or not state.get("chosen_choice"):
+        scenario_prompt = first_scenario_prompt.format(
+            context=docs_content,
+            year=year,
+            system_rules=SYSTEM_RULES,
+            citations=citations_literal,
+            faction=faction
+        )
+    else:
+        scenario_prompt = next_scenario_prompt.format(
+            context=docs_content,
+            year=year,
+            system_rules=SYSTEM_RULES,
+            citations=citations_literal,
+            faction=faction,
+            previous_scenario=state.get("scenario", "None"),
+            chosen_choice=chosen_choice_text
+        )
     
     scenario_response = llm.invoke(scenario_prompt)
     scenario_raw = scenario_response.content.strip()
@@ -106,7 +111,8 @@ def generate(state: State):
     choice_prompt = choice_maker_prompt.format(
         context=docs_content,
         system_rules=SYSTEM_RULES,
-        scenario=scenario_text
+        scenario=scenario_text,
+        faction=faction
     )
     
     choice_response = llm.invoke(choice_prompt)
@@ -127,13 +133,13 @@ graph_builder = StateGraph(State).add_sequence([retrieve, generate])
 graph_builder.add_edge(START, "retrieve")
 graph = graph_builder.compile()
 
-def run_rag(question: str, year: int = 2075, scenario=None, choices=None, choice_id=None, faction="Unknown"):
+def run_rag(question: str, year: int = 2075, scenario=None, choices=None, chosen_choice=None, faction="Unknown"):
     state = {
         "question": question,
         "year": year,
         "scenario": scenario,
         "choices": choices,
-        "choice_id": choice_id,
+        "chosen_choice": chosen_choice, 
         "faction": faction
     }
     return graph.invoke(state)

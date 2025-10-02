@@ -115,13 +115,18 @@ class ChoiceView(APIView):
             
             # Calculate new year
             new_year = session["year"] + 1
+            
+            chosen_choice_text = None
+            for c in scenarios[-1]["choices"]:
+                if c["id"] == choice_id:
+                    chosen_choice_text = c["text"]
 
             # Generate new scenario
             result = run_rag(
                 question="Generate next scenario",
                 year=new_year,
                 scenario=scenarios[-1]["text"],
-                choice_id=choice_id,
+                chosen_choice=chosen_choice_text,
                 faction=session["faction"]
             )
 
