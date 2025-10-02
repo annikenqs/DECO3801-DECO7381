@@ -18,10 +18,11 @@ SYSTEM_RULES = {
         "Neurotechnology implants have become popular by 2075.",
         "Memory manipulation is technically possible but ethically controversial.",
         "Each year, one major neurotech-related event happens.",
-        "Players always receive exactly 3 choices."
+        "Players always receive exactly 3 choices.",
     ],
     "constraints": [
         "Scenarios must stay realistic for neurotechnology research.",
+        "Avoid academic or technical language. Keep it simple, clear, and engaging." 
     ],
     "factions": {
         "rightists": "Sees memory as a right: not for sale, need explicit consent, revocable at any time.",
