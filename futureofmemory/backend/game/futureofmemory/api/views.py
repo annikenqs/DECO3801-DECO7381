@@ -6,26 +6,26 @@ from rest_framework import status
 from game.futureofmemory.services.query_service import run_rag
 from game.futureofmemory.services.firebase_service import (
     create_session, get_session_by_pin, add_scenario, update_scenarios, 
-    update_year, update_faction, join_session, get_player_count, update_game_state
+    update_year, update_faction, join_session, get_player_count, update_game_state, allocate_pin
 )
 
 
+        
 class SessionView(APIView):
     def post(self, request):
         """
         Create a new game session in Firebase.
-        The creator provides a nickname and becomes the host.
         """
         try:
             data = request.data
-            nickname = data.get("nickname")
-            if not nickname:
-                return Response({"error": "Nickname is required."}, status=status.HTTP_400_BAD_REQUEST)
-
             faction = data.get("faction", "Unknown")
             year = data.get("year", 2075)
 
-            session = create_session(faction=faction, year=year)
+            # pin options
+            pin = data.get("pin") or allocate_pin()
+
+            session = create_session(faction, year, "lobby", pin, numberofplayers=0)
+
             return Response(session, status=status.HTTP_201_CREATED)
 
         except Exception as e:
