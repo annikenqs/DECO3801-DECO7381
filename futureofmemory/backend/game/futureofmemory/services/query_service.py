@@ -9,9 +9,8 @@ from .chroma_service import init_chroma, load_documents
 from .llm_service import (
     get_llm,
     SYSTEM_RULES,
-    first_scenario_prompt,
-    next_scenario_prompt,
-    choice_maker_prompt,
+    first_scenario_and_choices_prompt,
+    next_scenario_and_choices_prompt,
 )
 
 vector_store = None
@@ -84,7 +83,7 @@ def generate(state: State):
     chosen_choice_text = state.get("chosen_choice") or "None"
     
     if not state.get("scenario") or not state.get("chosen_choice"):
-        scenario_prompt = first_scenario_prompt.format(
+        scenario_prompt = first_scenario_and_choices_prompt.format(
             context=docs_content,
             year=year,
             system_rules=SYSTEM_RULES,
@@ -92,7 +91,7 @@ def generate(state: State):
             faction=faction
         )
     else:
-        scenario_prompt = next_scenario_prompt.format(
+        scenario_prompt = next_scenario_and_choices_prompt.format(
             context=docs_content,
             year=year,
             system_rules=SYSTEM_RULES,
@@ -106,19 +105,8 @@ def generate(state: State):
     scenario_raw = scenario_response.content.strip()
     scenario_parsed = safe_parse_response(scenario_raw)
     scenario_text = scenario_parsed.get("scenario_text", "No scenario generated")
+    choices = scenario_parsed.get("choices", [])
     citations = scenario_parsed.get("citations", [])
-
-    choice_prompt = choice_maker_prompt.format(
-        context=docs_content,
-        system_rules=SYSTEM_RULES,
-        scenario=scenario_text,
-        faction=faction
-    )
-    
-    choice_response = llm.invoke(choice_prompt)
-    choice_raw = choice_response.content.strip()
-    choice_parsed = safe_parse_response(choice_raw)
-    choices = choice_parsed.get("choices", [])
     
     return {
         "scenario": {

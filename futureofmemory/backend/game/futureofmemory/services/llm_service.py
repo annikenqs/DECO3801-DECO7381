@@ -39,10 +39,11 @@ Context:
 {context}
 """
 
-first_scenario_prompt = PromptTemplate.from_template(
+first_scenario_and_choices_prompt = PromptTemplate.from_template(
     BASE_PROMPT + """
-    You are the Scenario Writer.
-    Write the first ~40 word scenario for the year: {year}.
+    You are the Scenario Writer and choice maker.
+    1. Write the first ~40 word scenario for the year {year}.
+    2. Then, propose 3 realistic player choices that follow from it.
     
     The chosen faction: {faction} should shape the perspective and concerns in the story.
     Since this is the opening, introduce the world vividly:
@@ -52,15 +53,22 @@ first_scenario_prompt = PromptTemplate.from_template(
     Output JSON:
     {{
         "scenario_text": "...",
+        "choices": [
+            {{"id": 1, "text": "..."}},
+            {{"id": 2, "text": "..."}},
+            {{"id": 3, "text": "..."}}
+        ],
         "citations": [{citations}]
     }}
     """
 )
 
-next_scenario_prompt = PromptTemplate.from_template(
+next_scenario_and_choices_prompt = PromptTemplate.from_template(
     BASE_PROMPT + """
-    You are the Scenario Writer.
-    Write a ~40 word scenario for the year {year}. Start with: "In {year}, ...".
+    You are the Scenario Writer and choice maker.
+    
+    1. Write a ~40 word scenario for the year {year}. Start with: "In {year}, ...".
+    2. Then, propose 3 realistic player choices that follow naturally from it.
 
     Strict rules:
     This must directly continue from the previous scenario and the player's chosen response.
@@ -81,25 +89,14 @@ next_scenario_prompt = PromptTemplate.from_template(
     Output JSON ONLY:
     {{
         "scenario_text": "...",
+        "choices": [
+            {{"id": 1, "text": "..."}},
+            {{"id": 2, "text": "..."}},
+            {{"id": 3, "text": "..."}}
+        ],
         "citations": [{citations}]
     }}
     """
 )
 
-
-choice_maker_prompt = PromptTemplate.from_template(
-    BASE_PROMPT + """
-    You are the Choice Maker. Given the following scenario: {scenario}, write exactly 3 distinct choices a player can make in response to the scenario.
-    The choices should be realistic and reflect different perspectives, as well as the chosen faction: {faction}. They should be concise (max 20 words each).
-    
-    Output JSON:
-    {{
-        "choices": [
-            {{"id": 1, "text": "..."}},
-            {{"id": 2, "text": "..."}},
-            {{"id": 3, "text": "..."}}
-        ]
-    }}
-    """
-)
 
