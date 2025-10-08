@@ -130,8 +130,8 @@ class ScenarioView(APIView):
             # Call RAG to generate a scenario
             result = run_rag(
                 question="Generate a scenario",
-                role="scenario",
-                year=session["year"]
+                year=session["year"],
+                faction=session["faction"] 
             )
             
             scenario_data = result.get("scenario", {})
@@ -179,15 +179,19 @@ class ChoiceView(APIView):
             
             # Calculate new year
             new_year = session["year"] + 1
+            
+            chosen_choice_text = None
+            for c in scenarios[-1]["choices"]:
+                if c["id"] == choice_id:
+                    chosen_choice_text = c["text"]
 
             # Generate new scenario
             result = run_rag(
                 question="Generate next scenario",
-                role="scenario",
                 year=new_year,
                 scenario=scenarios[-1]["text"],
-                choices=scenarios[-1]["choices"],
-                choice_id=choice_id
+                chosen_choice=chosen_choice_text,
+                faction=session["faction"]
             )
 
             scenario_data = result.get("scenario", {})
