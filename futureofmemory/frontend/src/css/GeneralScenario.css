@@ -1,0 +1,126 @@
+@font-face {
+  font-family: "VT323";
+  src: url("../assets/fonts/VT323.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --bg: #02070c;        
+  --bg-deep: #091522;    
+  --ink: #cfe3ff;        
+  --ink-muted: #a9c1df;  
+  --glow1: rgba(164, 210, 255, .35);
+  --glow2: rgba(120, 180, 255, .22);
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+
+body {
+  margin: 0;
+  color: var(--ink);
+  background:
+    radial-gradient(1200px 600px at 70% 10%, rgba(170,215,255,.08), transparent 60%),
+    radial-gradient(900px 500px at 20% 85%, rgba(120,170,255,.06), transparent 55%),
+    linear-gradient(180deg, var(--bg) 0%, var(--bg-deep) 100%);
+  font-family: "VT323", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Courier New", monospace;
+  letter-spacing: .02em;
+  overflow-x: hidden;
+}
+
+
+body::after {
+  content: "";
+  position: fixed; inset: 0;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(255,255,255,.035) 0px,
+    rgba(255,255,255,.035) 1px,
+    transparent 2px,
+    transparent 3px
+  );
+  opacity: .05;
+  pointer-events: none;
+}
+
+/* Progress:Year */
+.year {
+  position: fixed;
+  top: 28px; left: 28px;
+  font-size: 35px;
+  font-weight: 400;
+  color: var(--ink);
+  text-shadow:
+    0 0 2px rgba(255,255,255,.25),
+    0 0 12px var(--glow1),
+    0 0 28px var(--glow2);
+  user-select: none;
+}
+
+.stage {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  grid-auto-rows: min-content;
+  padding: 96px 16px 56px;
+}
+
+.scenario {
+  text-align: center;
+  font-size: 30px;
+  line-height: 1.15;
+  max-width: 980px;
+  margin: 0 auto 84px;
+  color: var(--ink);
+  text-shadow:
+    0 0 2px rgba(255,255,255,.25),
+    0 0 14px var(--glow1),
+    0 0 30px var(--glow2);
+  word-break: break-word;
+}
+
+
+.options { list-style: none; padding: 0; margin: 0 auto; text-align: center; margin-top: 48px; }
+.options li { margin: 10px 0; }
+
+.option {
+  appearance: none;
+  background: transparent;
+  border: none;
+  color: var(--ink);
+  font-size: 20px;
+  line-height: 1.4;
+  cursor: pointer;
+  padding: 4px 10px;
+  position: relative;
+  transition: transform .06s ease, text-shadow .2s ease;
+  font-family: inherit; 
+}
+.option::after {
+  content: "";
+  position: absolute; left: 0; right: 0; bottom: -3px; height: 2px;
+  background: linear-gradient(90deg, rgba(180,220,255,.85), rgba(130,190,255,.85));
+  transform: scaleX(0); transform-origin: left;
+  filter: drop-shadow(0 0 6px var(--glow1));
+  transition: transform .22s ease;
+}
+.option:hover::after,
+.option:focus-visible::after { transform: scaleX(1); }
+.option:hover,
+.option:focus-visible {
+  outline: none;
+  text-shadow:
+    0 0 2px rgba(255,255,255,.25),
+    0 0 10px var(--glow1);
+  transform: translateY(0.5px);
+}
+
+
+/* small screen*/
+@media (max-width: 600px) {
+  .year { font-size: 40px; left: 18px; top: 18px; }
+  .scenario { font-size: 36px; margin-bottom: 60px; }
+  .option { font-size: 22px; }
+}

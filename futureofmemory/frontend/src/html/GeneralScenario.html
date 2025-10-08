@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>General Scenario</title>
+    <link rel="stylesheet" href="../css/GeneralScenario.css" />
+    <!-- <script>window.__API_BASE__ = "http://localhost:3000/api";</script> -->
+  </head>
+  <body>
+    <!-- Progress: Year -->
+    <div id="progress" class="year">YEAR 2075</div>
+
+    <!-- scenario -->
+    <main class="stage" role="main">
+      <div id="scenarioText" class="scenario">
+        Fetching scenario from server...
+      </div>
+
+      <!-- optionsn-->
+      <ul id="options" class="options" aria-label="Options">
+        <li><button class="option" data-id="A">A: Fetching option from server...</button></li>
+        <li><button class="option" data-id="B">B: Fetching option from server...</button></li>
+        <li><button class="option" data-id="C">C: Fetching option from server...</button></li>
+      </ul>
+    </main>
+
+    <script type="module" src="../js/GeneralScenario.js"></script>
+  </body>
+</html>
