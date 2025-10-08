@@ -162,8 +162,8 @@ def update_game_state(pin: int, new_state: str):
     if new_state not in ["lobby", "in-progress", "finished"]:
         raise ValueError(f"Invalid game state: {new_state}")
 
-    ref.document(pin).update({"status": new_state})
-    return {"pin": pin, "status": new_state}
+    ref.document(pin).update({"state": new_state})
+    return {"pin": pin, "state": new_state}
 
 # The original get_session is now get_session_by_pin
 get_session = get_session_by_pin
