@@ -154,7 +154,7 @@ def get_player_count(pin: int):
     return session.get("numberofplayers", 0)
 
 def update_game_state(pin: int, new_state: str):
-    """Updates the status of a game session (e.g., from 'lobby' to 'in-progress')."""
+    """Updates the status of a game session (e.g., from 'lobby' to 'active')."""
     session = get_session_by_pin(pin)
     if not session:
         raise ValueError("Invalid PIN.")
