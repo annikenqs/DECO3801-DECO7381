@@ -151,7 +151,7 @@ def update_game_state(pin: int, new_state: str):
     if not session:
         raise ValueError("Invalid PIN.")
     
-    if new_state not in ["lobby", "active", "finished"]:
+    if new_state not in ["lobby", "in-progress", "finished"]:
         raise ValueError(f"Invalid game status: {new_state}")
 
     ref.document(pin).update({"status": new_state})
