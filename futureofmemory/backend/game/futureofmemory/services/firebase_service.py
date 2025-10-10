@@ -11,8 +11,6 @@ if not firebase_admin._apps:
 db = firestore.client()
 ref = db.collection('games')
 
-
-
 # converts an integer to a six-digit string
 # i.e. 1 => 000001, 3 => 000003, 102345 => 102345
 def integer_to_string(number: int) -> str:
@@ -111,11 +109,6 @@ def game_update(pin):
     elif (doc.get("year") == 2085):
         db.collection("games").document(pin).update({"status": "finished"})
 
-
-
-
-
-
 def join_session(pin: int, nickname: str):
     """
     Adds a player to an existing session if conditions are met.
@@ -132,7 +125,6 @@ def join_session(pin: int, nickname: str):
     number_of_players = session.get("numberofplayers", 0)
     if number_of_players >= 5:
         raise ValueError("This game is full.")
-
 
     ref.document(pin).update({"numberofplayers": number_of_players + 1})
 
