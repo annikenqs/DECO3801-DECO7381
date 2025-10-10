@@ -129,14 +129,14 @@ def join_session(pin: int, nickname: str):
         print(session.get("status"))
         raise ValueError("Game has already started and cannot be joined.")
 
-    number_of_players = session.get("numberOfPlayers", 0)
+    number_of_players = session.get("numberofplayers", 0)
     if number_of_players >= 5:
         raise ValueError("This game is full.")
 
 
-    ref.document(pin).update({"numberOfPlayers": number_of_players + 1})
+    ref.document(pin).update({"numberofplayers": number_of_players + 1})
 
-    session["numberOfPlayers"] = number_of_players + 1
+    session["numberofplayers"] = number_of_players + 1
     return session
 
 def get_session_by_pin(pin: int):
@@ -151,7 +151,7 @@ def get_player_count(pin: int):
     session = get_session_by_pin(pin)
     if not session:
         raise ValueError("Invalid PIN.")
-    return session.get("numberOfPlayers", 0)
+    return session.get("numberofplayers", 0)
 
 def update_game_state(pin: int, new_state: str):
     """Updates the state of a game session (e.g., from 'lobby' to 'in-progress')."""
@@ -160,10 +160,10 @@ def update_game_state(pin: int, new_state: str):
         raise ValueError("Invalid PIN.")
     
     if new_state not in ["lobby", "in-progress", "finished"]:
-        raise ValueError(f"Invalid game state: {new_state}")
+        raise ValueError(f"Invalid game status: {new_state}")
 
-    ref.document(pin).update({"state": new_state})
-    return {"pin": pin, "state": new_state}
+    ref.document(pin).update({"status": new_state})
+    return {"pin": pin, "status": new_state}
 
 # The original get_session is now get_session_by_pin
 get_session = get_session_by_pin
