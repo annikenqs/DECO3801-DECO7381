@@ -1,0 +1,16 @@
+langchain
+langchain-community
+langchain-huggingface
+langchain-chroma
+langchain-text-splitters
+langgraph
+
+chromadb
+
+huggingface_hub
+sentence-transformers
+
+pypdf
+docx2txt
+
+typing_extensions
