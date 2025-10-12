@@ -152,6 +152,66 @@ class ChoiceView(APIView):
         """
         try:
             data = request.data
+            choice_id = data.get("choiceId")
+            scenario_id = data.get("scenarioId")
+
+            session = get_session_by_pin(pin)
+            if not session:
+                return Response({"error": "Session not found"}, status=status.HTTP_404_NOT_FOUND)
+            
+            if session.get("status") != "in-progress":
+                return Response({"error": "Game has not started yet."}, status=status.HTTP_403_FORBIDDEN)
+
+            # Update last scenario's chosen choice
+            scenarios = session.get("scenarios", [])
+            for s in scenarios:
+                if s["id"] == scenario_id:
+                    s["chosen"] = choice_id
+            update_scenarios(pin, scenarios)
+
+            # calculate new year
+            new_year = session["year"] + 1
+            
+            chosen_choice_text = None
+            for c in scenarios[-1]["choices"]:
+                if c["id"] == choice_id:
+                    chosen_choice_text = c["text"]
+
+            # Generate new scenario
+            result = run_rag(
+                question="Generate next scenario",
+                year=new_year,
+                scenario=scenarios[-1]["text"],
+                chosen_choice=chosen_choice_text,
+                faction=session["faction"]
+            )
+
+            scenario_data = result.get("scenario", {})
+            scenario_text = scenario_data.get("scenario_text", "No scenario generated")
+            choices = scenario_data.get("choices", [])
+
+            new_scenario = {
+                "id": len(scenarios) + 1,
+                "text": scenario_text,
+                "choices": choices,
+                "chosen": None
+            }
+            add_scenario(pin, new_scenario)
+            
+            update_year(pin, new_year)
+
+            return Response(new_scenario, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+class VotingLogicView(APIView):
+    def patch(self, request, pin):
+        """
+        Mark a choice as chosen, then generate the next scenario.
+        """
+        try:
+            data = request.data
             choice_id = int(data.get("choiceId"))
             scenario_id = int(data.get("scenarioId"))
             # finalize: boolean that checks if votes have been finalised
@@ -166,76 +226,53 @@ class ChoiceView(APIView):
             
             # 1) Increment the vote count for this choice
             vote_result = increment_choice_vote(pin, scenario_id, choice_id)
+        finally:
+            return vote_result
 
-            # 2) retrieve the updated scenario and totals
-            updated_scenario = get_session_by_pin(pin)
+# endpoint 1: takes care of voting (based on choice id, it updates number in firebase)
 
-            # Update last scenario's chosen choice
-            scenarios = updated_scenario.get("scenarios", [])
-            current = next((s for s in scenarios if s.get("id") == scenario_id), None)
-            if not current:
-                return Response({"error": "Scenario not found"}, status=status.HTTP_404_NOT_FOUND)
-            
-            # retrieve the number of players and the total number of votes
-            number_of_players = int(updated_scenario.get("numberofplayers", 0))
-            total_votes = sum(int(ch.get("votes", 0)) for ch in current.get("choices", []))
+# endpoint 2: checks how many players have voted so far, and check it against the number of players
+# returns the choiceID of the picked choice
 
-            # If not everyone has voted AND finalize is not requested, just return tally
-            if not finalize and (number_of_players == 0 or total_votes < number_of_players):
-                return Response(vote_result, status=status.HTTP_200_OK)
-            
-            # 3) Finalise: pick winner (highest votes; tie -> lowest id)
-            winner = max(
-                current["choices"],
-                key=lambda ch: (int(ch.get("votes", 0)), -int(ch.get("id", 0)))
-            )
+class PlayerVoteCheck(APIView):
+    def patch(self, request, pin):
+        
+        data = request.data
+        choice_id = int(data.get("choiceId"))
+        scenario_id = int(data.get("scenarioId"))
 
-            # defines the chosen choice by its id
-            current["chosen"] = winner["id"]
-            
+        scenarios = updated_scenario.get("scenarios", [])
+        current = next((s for s in scenarios if s.get("id") == scenario_id), None)
+        if not current:
+            return Response({"error": "Scenario not found"}, status=status.HTTP_404_NOT_FOUND)
+        
+        # finalize: boolean that checks if votes have been finalised
+        finalize = bool(data.get("finalize", False))
+        
+        # 2) retrieve the updated scenario and totals
+        updated_scenario = get_session_by_pin(pin)
 
-            # persist chosen
-            for i, s in enumerate(scenarios):
-                if s.get("id") == scenario_id:
-                    scenarios[i] = current
-                    break
-            
-            # update scenarios accordingly
-            update_scenarios(pin, scenarios)
+        # retrieve the number of players and the total number of votes
+        number_of_players = int(updated_scenario.get("numberofplayers", 0))
+        total_votes = sum(int(ch.get("votes", 0)) for ch in current.get("choices", []))
 
-            # Calculate new year
-            new_year = updated_scenario["year"] + 1
+        # 1) Increment the vote count for this choice
+        vote_result = increment_choice_vote(pin, scenario_id, choice_id)
 
-            # defines the chosen scenario by its text
-            chosen_choice_text = winner.get("text")
+        # If not everyone has voted AND finalize is not requested, just return tally
+        if not finalize and (number_of_players == 0 or total_votes < number_of_players):
+            return Response(vote_result, status=status.HTTP_200_OK)
+        
+        # 3) Finalise: pick winner (highest votes; tie -> lowest id)
+        winner = max(
+            current["choices"],
+            key=lambda ch: (int(ch.get("votes", 0)), -int(ch.get("id", 0)))
+        )
 
-            # Generate new scenario
-            result = run_rag(
-                question="Generate next scenario",
-                year=new_year,
-                scenario=current["text"],
-                chosen_choice=chosen_choice_text,
-                faction=updated_scenario["faction"]
-            )
-
-            scenario_data = result.get("scenario", {})
-            scenario_text = scenario_data.get("scenario_text", "No scenario generated")
-            choices = scenario_data.get("choices", [])
-
-            new_scenario = {
-                "id": len(scenarios) + 1,
-                "text": scenario_text,
-                "choices": [{"id": c.get("id"), "text": c.get("text"), "votes": 0} for c in choices],
-                "chosen": None
-            }
-            add_scenario(pin, new_scenario)
-            
-            update_year(pin, new_year)
-
-            return Response(new_scenario, status=status.HTTP_200_OK)
-
-        except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        # defines the chosen choice by its id
+        current["chosen"] = winner["id"]
+        
+        return current["chosen"]
 
 class PlayerCountView(APIView):
     def get(self, request, pin):
