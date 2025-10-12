@@ -2,11 +2,13 @@ import uuid
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
+import random
 
 from game.futureofmemory.services.query_service import run_rag
 from game.futureofmemory.services.firebase_service import (
     create_session, get_session_by_pin, add_scenario, update_scenarios, 
-    update_year, update_faction, join_session, get_player_count, update_game_state, allocate_pin
+    update_year, update_faction, join_session, get_player_count, update_game_state, allocate_pin,
+    increment_choice_vote, pick_winner_from_choices
 )
         
 class SessionView(APIView):
@@ -150,8 +152,10 @@ class ChoiceView(APIView):
         """
         try:
             data = request.data
-            choice_id = data.get("choiceId")
-            scenario_id = data.get("scenarioId")
+            choice_id = int(data.get("choiceId"))
+            scenario_id = int(data.get("scenarioId"))
+            # finalize: boolean that checks if votes have been finalised
+            finalize = bool(data.get("finalize", False))
 
             session = get_session_by_pin(pin)
             if not session:
@@ -159,29 +163,59 @@ class ChoiceView(APIView):
             
             if session.get("status") != "in-progress":
                 return Response({"error": "Game has not started yet."}, status=status.HTTP_403_FORBIDDEN)
+            
+            # 1) Increment the vote count for this choice
+            vote_result = increment_choice_vote(pin, scenario_id, choice_id)
+
+            # 2) retrieve the updated scenario and totals
+            updated_scenario = get_session_by_pin(pin)
 
             # Update last scenario's chosen choice
-            scenarios = session.get("scenarios", [])
-            for s in scenarios:
-                if s["id"] == scenario_id:
-                    s["chosen"] = choice_id
+            scenarios = updated_scenario.get("scenarios", [])
+            current = next((s for s in scenarios if s.get("id") == scenario_id), None)
+            if not current:
+                return Response({"error": "Scenario not found"}, status=status.HTTP_404_NOT_FOUND)
+            
+            # retrieve the number of players and the total number of votes
+            number_of_players = int(updated_scenario.get("numberofplayers", 0))
+            total_votes = sum(int(ch.get("votes", 0)) for ch in current.get("choices", []))
+
+            # If not everyone has voted AND finalize is not requested, just return tally
+            if not finalize and (number_of_players == 0 or total_votes < number_of_players):
+                return Response(vote_result, status=status.HTTP_200_OK)
+            
+            # 3) Finalise: pick winner (highest votes; tie -> lowest id)
+            winner = max(
+                current["choices"],
+                key=lambda ch: (int(ch.get("votes", 0)), -int(ch.get("id", 0)))
+            )
+
+            # defines the chosen choice by its id
+            current["chosen"] = winner["id"]
+            
+
+            # persist chosen
+            for i, s in enumerate(scenarios):
+                if s.get("id") == scenario_id:
+                    scenarios[i] = current
+                    break
+            
+            # update scenarios accordingly
             update_scenarios(pin, scenarios)
-            
+
             # Calculate new year
-            new_year = session["year"] + 1
-            
-            chosen_choice_text = None
-            for c in scenarios[-1]["choices"]:
-                if c["id"] == choice_id:
-                    chosen_choice_text = c["text"]
+            new_year = updated_scenario["year"] + 1
+
+            # defines the chosen scenario by its text
+            chosen_choice_text = winner.get("text")
 
             # Generate new scenario
             result = run_rag(
                 question="Generate next scenario",
                 year=new_year,
-                scenario=scenarios[-1]["text"],
+                scenario=current["text"],
                 chosen_choice=chosen_choice_text,
-                faction=session["faction"]
+                faction=updated_scenario["faction"]
             )
 
             scenario_data = result.get("scenario", {})
@@ -191,7 +225,7 @@ class ChoiceView(APIView):
             new_scenario = {
                 "id": len(scenarios) + 1,
                 "text": scenario_text,
-                "choices": choices,
+                "choices": [{"id": c.get("id"), "text": c.get("text"), "votes": 0} for c in choices],
                 "chosen": None
             }
             add_scenario(pin, new_scenario)
