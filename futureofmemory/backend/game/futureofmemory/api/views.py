@@ -157,7 +157,7 @@ class ChoiceView(APIView):
             if not session:
                 return Response({"error": "Session not found"}, status=status.HTTP_404_NOT_FOUND)
             
-            if session.get("state") != "in-progress":
+            if session.get("status") != "in-progress":
                 return Response({"error": "Game has not started yet."}, status=status.HTTP_403_FORBIDDEN)
 
             # Update last scenario's chosen choice
