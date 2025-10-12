@@ -1,8 +1,10 @@
+import { getPlayerCount } from '/src/api/futureMemoryApi.js';
+
 // lobby.js
 
 // Get Game PIN from URL
 const urlParams = new URLSearchParams(window.location.search);
-const pin = urlParams.get('pin') || '123456'; // fallback
+const pin = urlParams.get('pin') || '000024'; // fallback
 document.getElementById('game-pin-display').textContent = `Game PIN: ${pin}`;
 
 const playersInfo = document.getElementById('players-info');
@@ -16,14 +18,23 @@ function updatePlayerCount() {
   playersInfo.innerHTML = `<p>${playerCount} / ${maxPlayers} players joined</p>`;
 }
 
+// Fetch player count
+async function fetchPlayerCount() {
+  try {
+    const data = await getPlayerCount({ pin });
+    playerCount = data.player_count ?? 0;
+    updatePlayerCount();
+  } catch (err) {
+    console.error('Error fetching player count:', err);
+    playersInfo.innerHTML = `<p class="error">Could not load player count</p>`;
+  }
+}
+
 // Initial state
 updatePlayerCount();
+fetchPlayerCount();
 
-// Simulate you joining after 1 second
-setTimeout(() => {
-  playerCount = 1;
-  updatePlayerCount();
-}, 1000);
+setInterval(fetchPlayerCount, 20000);
 
 startButton.addEventListener('click', () => {
   if (playerCount === 0) {
