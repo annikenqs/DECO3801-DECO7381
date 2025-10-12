@@ -219,11 +219,11 @@ class PlayerCountView(APIView):
 class GameStateView(APIView):
     def patch(self, request, pin):
         """
-        Updates the game state, typically to start the game.
+        Updates the game status, typically to start the game.
         """
         try:
             data = request.data
-            new_state = data.get("state")
+            new_state = data.get("status")
 
             if not new_state:
                 return Response({"error": "State is required."}, status=status.HTTP_400_BAD_REQUEST)
