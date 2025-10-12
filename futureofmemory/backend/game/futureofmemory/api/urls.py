@@ -2,7 +2,7 @@
 from django.urls import path
 from .views import (
     SessionView, ScenarioView, ChoiceView, FactionView,
-    JoinSessionView, PlayerCountView, GameStateView
+    JoinSessionView, PlayerCountView, GameStateView, VotingLogicView, PlayerVoteCheck
 )
 
 urlpatterns = [
@@ -14,4 +14,6 @@ urlpatterns = [
     path("session/<str:pin>/choice/", ChoiceView.as_view(), name="session_choice"),
     path("session/<str:pin>/players/count/", PlayerCountView.as_view(), name="player_count"),
     path("session/<str:pin>/state/", GameStateView.as_view(), name="game_state"),
+    path("session/<str:pin>/vote/", VotingLogicView.as_view(), name="session_vote"),
+    path("session/<str:pin>/votes/status/", PlayerVoteCheck.as_view(), name="vote_check"),
 ]
