@@ -208,8 +208,8 @@ class VotingLogicView(APIView):
     def patch(self, request, pin):
         try:
             data = request.data
-            scenario_id = int(data.get("scenarioId"))
-            choice_id   = int(data.get("choiceId"))
+            scenario_id = data.get("scenarioId")
+            choice_id   = data.get("choiceId")
 
             session = get_session_by_pin(pin)
             if not session:
@@ -255,7 +255,40 @@ class VotingLogicView(APIView):
                 if s.get("id") == scenario_id:
                     scenarios[i] = current
                     break
+            
             update_scenarios(pin, scenarios)
+            
+            # --- AUTO-ADVANCE: generate the next scenario as soon as voting finalises ---
+            new_year = refreshed["year"] + 1
+
+            # Text of the winning choice from the current, finalised scenario
+            chosen_choice_text = next(
+                (c.get("text") for c in current.get("choices", []) if int(c.get("id")) == int(winner["id"])),
+                None
+            )
+
+            # Generate the next scenario (same flow as ChoiceView)
+            result = run_rag(
+                question="Generate next scenario",
+                year=new_year,
+                scenario=current.get("text"),
+                chosen_choice=chosen_choice_text,
+                faction=refreshed.get("faction"),
+            )
+
+            scenario_data = result.get("scenario", {})
+            scenario_text = scenario_data.get("scenario_text", "No scenario generated")
+            choices = scenario_data.get("choices", [])
+
+            new_scenario = {
+                "id": len(scenarios) + 1,
+                "text": scenario_text,
+                "choices": choices,
+                "chosen": None,
+            }
+            add_scenario(pin, new_scenario)
+            update_year(pin, new_year)
+
 
             return Response({
                 "pin": pin,
@@ -337,6 +370,7 @@ class PlayerVoteCheck(APIView):
                 if s.get("id") == scenario_id:
                     scenarios[i] = current
                     break
+            
             update_scenarios(pin, scenarios)
 
             return Response({
