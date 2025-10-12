@@ -1,4 +1,4 @@
-import { getPlayerCount } from '/src/api/futureMemoryApi.js';
+import { getPlayerCount, updateGameStatus, getGameState } from '/src/api/futureMemoryApi.js';
 
 // lobby.js
 
@@ -30,18 +30,35 @@ async function fetchPlayerCount() {
   }
 }
 
+async function checkGameStatus() {
+  try {
+    const data = await getGameState({ pin });   
+    if (data?.status === 'in-progress') {
+      window.location.href = `moon.html?pin=${encodeURIComponent(pin)}`;
+    }
+  } catch (err) {
+    console.warn('Could not fetch game status:', err);
+  }
+}
+
+
 // Initial state
 updatePlayerCount();
 fetchPlayerCount();
 
 setInterval(fetchPlayerCount, 20000);
+setInterval(checkGameStatus, 3000);
 
-startButton.addEventListener('click', () => {
+startButton.addEventListener('click', async () => {
   if (playerCount === 0) {
     alert('At least 1 player must join before starting.');
     return;
   }
-  alert('Game starting...');
-  // Redirect to actual game page later
-  // window.location.href = "game.html";
+  try {
+    await updateGameStatus({ pin, status: 'in-progress' });
+    window.location.href = `moon.html?pin=${encodeURIComponent(pin)}`;
+  } catch (err) {
+    console.error('Failed to start game:', err);
+    alert('Failed to start game.');
+  }
 });
