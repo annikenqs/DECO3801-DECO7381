@@ -105,11 +105,11 @@ def game_update(pin):
     if (doc.get("numberofplayers") >= 1 or (doc.get("year") == None)): 
         db.collection("games").document(pin).update({"status": "lobby"})
     elif (doc.get("year") >= 2075):
-        db.collection("games").document(pin).update({"status": "active"})
+        db.collection("games").document(pin).update({"status": "in-progress"})
     elif (doc.get("year") == 2085):
         db.collection("games").document(pin).update({"status": "finished"})
 
-def join_session(pin: int, nickname: str):
+def join_session(pin: int):
     """
     Adds a player to an existing session if conditions are met.
     """
@@ -146,7 +146,7 @@ def get_player_count(pin: int):
     return session.get("numberofplayers", 0)
 
 def update_game_state(pin: int, new_state: str):
-    """Updates the status of a game session (e.g., from 'lobby' to 'active')."""
+    """Updates the status of a game session (e.g., from 'lobby' to 'in-progress')."""
     session = get_session_by_pin(pin)
     if not session:
         raise ValueError("Invalid PIN.")
