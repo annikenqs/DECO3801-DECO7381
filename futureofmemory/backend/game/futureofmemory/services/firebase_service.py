@@ -100,15 +100,6 @@ def update_pin(doc_id: str) -> str:
     doc_ref.update({"pin":new_pin})
     return new_pin
 
-def game_update(pin):
-    doc = db.collection("games").document(pin).get()
-    if (doc.get("numberofplayers") >= 1 or (doc.get("year") == None)): 
-        db.collection("games").document(pin).update({"status": "lobby"})
-    elif (doc.get("year") >= 2075):
-        db.collection("games").document(pin).update({"status": "in-progress"})
-    elif (doc.get("year") == 2085):
-        db.collection("games").document(pin).update({"status": "finished"})
-
 def join_session(pin: int):
     """
     Adds a player to an existing session if conditions are met.
