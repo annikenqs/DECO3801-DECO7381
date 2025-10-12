@@ -14,7 +14,7 @@ function ensureSession() {
   return sid;
 }
 
-async function sendFaction(sessionId, faction) {
+async function setFaction(sessionId, faction) {
   try {
     const res = await fetch(`${API_BASE}/faction`, {
       method: 'POST',
@@ -37,7 +37,7 @@ async function sendFaction(sessionId, faction) {
     }
   } catch (e) {
     // Non-blocking jump: Only warns in the console
-    console.warn('sendFaction failed:', e && e.message ? e.message : e);
+    console.warn('setFaction failed:', e && e.message ? e.message : e);
   }
 }
 
@@ -66,7 +66,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // sync to backend (non-blocking)
       const sessionId = ensureSession();
-      await sendFaction(sessionId, mode);
+      await setFaction(sessionId, mode);
 
       // jump
       const nextUrl = NEXT_BY_MODE[mode];

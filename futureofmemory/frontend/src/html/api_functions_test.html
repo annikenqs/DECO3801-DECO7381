@@ -19,7 +19,7 @@
     <div class="row">
       <button onclick="handleCreateSession()">Create Session</button>
       <button onclick="handleGetScenario()">Get Scenario</button>
-      <button onclick="handleSendFaction()">Send Faction (rightists)</button>
+      <button onclick="handlesetFaction()">Send Faction (rightists)</button>
       <label><input id="withCreds" type="checkbox"> credentials: include</label>
       <label>Base:
         <input id="baseUrl" size="34" value="http://127.0.0.1:8000/api">
@@ -71,7 +71,7 @@
         // POST /session/{sid}/scenario/ -> { scenarioId|id, text|content, choices?, year? }
         return request(`/session/${sessionId}/scenario/`, 'POST', {});
       }
-      function sendFaction({ sessionId, faction }) {
+      function setFaction({ sessionId, faction }) {
         return request(`/session/${sessionId}/faction`, 'POST', { faction });
       }
       function sendChoice({ sessionId, scenarioId, choiceId }) {
@@ -136,10 +136,10 @@
         }
       };
 
-      window.handleSendFaction = async function () {
+      window.handlesetFaction = async function () {
         try {
           if (!sessionId) throw new Error('No sessionId. Click "Create Session" first.');
-          await sendFaction({ sessionId, faction: 'rightists' });
+          await setFaction({ sessionId, faction: 'rightists' });
           log('✅ Faction set to rightists.');
         } catch (err) {
           log('❌ ' + err.message);
