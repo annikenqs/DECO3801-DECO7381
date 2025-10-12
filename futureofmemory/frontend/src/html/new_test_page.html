@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>API Test - New</title>
+    <style>
+      body { font-family: ui-monospace, Menlo, Consolas, monospace; margin: 1.5rem; }
+      button { margin: .25rem; padding: .5rem 1rem; }
+      #log { background:#0b1b2b; color:#cfe3ff; padding:1rem; margin-top:1rem; white-space:pre-wrap; border-radius:8px; }
+    </style>
+    <!-- If you DON'T use the Vite proxy, uncomment and point to backend:
+    <script>window.__API_BASE__ = 'http://localhost:8000/api';</script>
+    -->
+  </head>
+  <body>
+    <h2>API Test - New</h2>
+    <button id="create">Create Session</button>
+    <button id="join">Join Session</button>
+    <button id="start">Start Game</button>
+    <button id="faction">Set Faction (rightists)</button>
+    <button id="scenario">Get Scenario</button>
+
+    <div>PIN: <code id="pin">—</code></div>
+    <pre id="log"></pre>
+
+    <!-- Use a module script so we can import your file -->
+    <script type="module">
+      import {
+        createSession,
+        joinSession,
+        startGame,
+        getScenario,
+        setFaction,
+        sendChoice,
+      } from '/src/api/futureMemoryApi.js';
+
+      const $ = (id) => document.getElementById(id);
+      const log = (m) => { $('log').textContent += m + '\n'; };
+
+      let pin = null;
+      let lastScenario = null;
+
+      // Create session (returns { pin, ... })
+      $('create').onclick = async () => {
+        try {
+          const session = await createSession();
+          pin = session.pin || session.id;
+          $('pin').textContent = pin || '—';
+          log('✅ created: ' + JSON.stringify(session));
+        } catch (e) {
+          log('❌ create failed: ' + (e.message || e));
+        }
+      };
+
+      // Join session
+      $('join').onclick = async () => {
+        try {
+          if (!pin) throw new Error('create first');
+          const res = await joinSession({ pin });
+          log('✅ joined: ' + JSON.stringify(res));
+        } catch (e) {
+          log('❌ join failed: ' + (e.message || e));
+        }
+      };
+
+      // Start game (server expects {status:'in-progress'})
+      $('start').onclick = async () => {
+        try {
+          if (!pin) throw new Error('create first');
+          const res = await startGame({ pin: pin });
+          log('✅ started: ' + JSON.stringify(res));
+        } catch (e) {
+          log('❌ start failed: ' + (e.message || e));
+        }
+      };
+
+      // Set faction (note backend route has trailing slash in helper)
+      $('faction').onclick = async () => {
+        try {
+          if (!pin) throw new Error('create first');
+          const res = await setFaction({ pin: pin, faction: 'rightists' });
+          log('✅ faction set: ' + JSON.stringify(res));
+        } catch (e) {
+          log('❌ faction failed: ' + (e.message || e));
+        }
+      };
+
+      // Get first scenario (only works after status === 'in-progress')
+      $('scenario').onclick = async () => {
+        try {
+          if (!pin) throw new Error('create first');
+          const sc = await getScenario({ pin: pin });
+          lastScenario = sc;
+          log('✅ scenario: ' + JSON.stringify(sc));
+        } catch (e) {
+          log('❌ scenario failed: ' + (e.message || e));
+        }
+      };
+    </script>
+  </body>
+</html>
