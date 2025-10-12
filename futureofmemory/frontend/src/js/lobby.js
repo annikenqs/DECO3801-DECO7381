@@ -1,4 +1,4 @@
-import { getPlayerCount, updateGameStatus, getGameState } from '/src/api/futureMemoryApi.js';
+import {getPlayerCount, updateGameStatus, getGameState} from '/src/api/futureMemoryApi.js';
 
 // lobby.js
 
@@ -21,7 +21,7 @@ function updatePlayerCount() {
 // Fetch player count
 async function fetchPlayerCount() {
   try {
-    const data = await getPlayerCount({ pin });
+    const data = await getPlayerCount({pin});
     playerCount = data.player_count ?? 0;
     updatePlayerCount();
   } catch (err) {
@@ -33,7 +33,7 @@ async function fetchPlayerCount() {
 // Check game status
 async function checkGameStatus() {
   try {
-    const data = await getGameState({ pin });   
+    const data = await getGameState({pin});
     if (data?.status === 'in-progress') {
       window.location.href = `moon.html?pin=${encodeURIComponent(pin)}`;
     }
@@ -41,7 +41,6 @@ async function checkGameStatus() {
     console.warn('Could not fetch game status:', err);
   }
 }
-
 
 // Initial state
 updatePlayerCount();
@@ -57,7 +56,7 @@ startButton.addEventListener('click', async () => {
     return;
   }
   try {
-    await updateGameStatus({ pin, status: 'in-progress' });
+    await updateGameStatus({pin, status: 'in-progress'});
     window.location.href = `moon.html?pin=${encodeURIComponent(pin)}`;
   } catch (err) {
     console.error('Failed to start game:', err);

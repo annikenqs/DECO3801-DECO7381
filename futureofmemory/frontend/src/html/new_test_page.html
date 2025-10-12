@@ -4,9 +4,22 @@
     <meta charset="UTF-8" />
     <title>API Test - New</title>
     <style>
-      body { font-family: ui-monospace, Menlo, Consolas, monospace; margin: 1.5rem; }
-      button { margin: .25rem; padding: .5rem 1rem; }
-      #log { background:#0b1b2b; color:#cfe3ff; padding:1rem; margin-top:1rem; white-space:pre-wrap; border-radius:8px; }
+      body {
+        font-family: ui-monospace, Menlo, Consolas, monospace;
+        margin: 1.5rem;
+      }
+      button {
+        margin: 0.25rem;
+        padding: 0.5rem 1rem;
+      }
+      #log {
+        background: #0b1b2b;
+        color: #cfe3ff;
+        padding: 1rem;
+        margin-top: 1rem;
+        white-space: pre-wrap;
+        border-radius: 8px;
+      }
     </style>
     <!-- If you DON'T use the Vite proxy, uncomment and point to backend:
     <script>window.__API_BASE__ = 'http://localhost:8000/api';</script>
@@ -35,7 +48,9 @@
       } from '/src/api/futureMemoryApi.js';
 
       const $ = (id) => document.getElementById(id);
-      const log = (m) => { $('log').textContent += m + '\n'; };
+      const log = (m) => {
+        $('log').textContent += m + '\n';
+      };
 
       let pin = null;
       let lastScenario = null;
@@ -56,7 +71,7 @@
       $('join').onclick = async () => {
         try {
           if (!pin) throw new Error('create first');
-          const res = await joinSession({ pin });
+          const res = await joinSession({pin});
           log('✅ joined: ' + JSON.stringify(res));
         } catch (e) {
           log('❌ join failed: ' + (e.message || e));
@@ -67,7 +82,7 @@
       $('start').onclick = async () => {
         try {
           if (!pin) throw new Error('create first');
-          const res = await startGame({ pin: pin });
+          const res = await startGame({pin: pin});
           log('✅ started: ' + JSON.stringify(res));
         } catch (e) {
           log('❌ start failed: ' + (e.message || e));
@@ -78,7 +93,7 @@
       $('faction').onclick = async () => {
         try {
           if (!pin) throw new Error('create first');
-          const res = await setFaction({ pin: pin, faction: 'rightists' });
+          const res = await setFaction({pin: pin, faction: 'rightists'});
           log('✅ faction set: ' + JSON.stringify(res));
         } catch (e) {
           log('❌ faction failed: ' + (e.message || e));
@@ -89,7 +104,7 @@
       $('scenario').onclick = async () => {
         try {
           if (!pin) throw new Error('create first');
-          const sc = await getScenario({ pin: pin });
+          const sc = await getScenario({pin: pin});
           lastScenario = sc;
           log('✅ scenario: ' + JSON.stringify(sc));
         } catch (e) {

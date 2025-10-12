@@ -16,12 +16,15 @@ if (hotspot) {
 (function initSnow() {
   const canvas = document.getElementById('snowCanvas');
   if (!canvas) return;
-  const ctx = canvas.getContext('2d', { alpha: true });
+  const ctx = canvas.getContext('2d', {alpha: true});
 
   const FLAKE_COUNT = 140;
-  const SIZE_MIN = 1, SIZE_MAX = 3;
-  const SPEED_MIN = 0.3, SPEED_MAX = 0.7;
-  const DRIFT = 0.35, SWAY = 0.45;
+  const SIZE_MIN = 1,
+    SIZE_MAX = 3;
+  const SPEED_MIN = 0.3,
+    SPEED_MAX = 0.7;
+  const DRIFT = 0.35,
+    SWAY = 0.45;
   let flakes = [];
 
   function fitCanvas() {
@@ -92,30 +95,25 @@ if (hotspot) {
   });
 })();
 
-
-import { createSession, joinSession } from '../api/futureMemoryApi.js';
+import {createSession} from '../api/futureMemoryApi.js';
 
 window.addEventListener('DOMContentLoaded', () => {
-
   const newGameBtn = document.querySelector('a.btn[href="src/html/lobby.html"]');
 
   if (!newGameBtn) {
     return;
   }
 
-  console.log("✅ Script loaded, button found");
+  console.log('✅ Script loaded, button found');
 
   newGameBtn.addEventListener('click', async (e) => {
     e.preventDefault();
 
     try {
-
-      const session = await createSession({ faction: 'Unknown', year: 2075 });
+      const session = await createSession({faction: 'Unknown', year: 2075});
 
       const pin = session?.pin;
       if (!pin) throw new Error("No 'pin' returned from backend");
-
-      const joinResponse = await joinSession({ pin });
 
       const targetUrl = `src/html/lobby.html?pin=${encodeURIComponent(pin)}`;
       window.location.href = targetUrl;

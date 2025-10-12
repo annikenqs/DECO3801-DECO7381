@@ -57,21 +57,21 @@ export async function request(
   return data;
 }
 
-export function createSession({ faction = 'Unknown', year = 2075, pin } = {}) {
+export function createSession({faction = 'Unknown', year = 2075, pin} = {}) {
   return request('/session/', {
     method: 'POST',
-    body: { faction, year, ...(pin ? { pin } : {}) },
+    body: {faction, year, ...(pin ? {pin} : {})},
   });
 }
 
-export function joinSession({ pin }) {
+export function joinSession({pin}) {
   if (!pin) throw new Error('joinSession: pin is required');
-  return request('/session/join/', { method: 'POST', body: { pin } });
+  return request('/session/join/', {method: 'POST', body: {pin}});
 }
 
-export function getPlayerCount({ pin }) {
+export function getPlayerCount({pin}) {
   if (!pin) throw new Error('getPlayerCount: pin is required');
-  return request(`/session/${pin}/players/count/`, { method: 'GET' });
+  return request(`/session/${pin}/players/count/`, {method: 'GET'});
 }
 
 export function updateGameStatus({pin, status}) {
@@ -92,11 +92,10 @@ export function setFaction({pin, faction}) {
   return request(`/session/${pin}/faction/`, {method: 'POST', body: {faction}});
 }
 
-export function getGameState({ pin }) {
+export function getGameState({pin}) {
   if (!pin) throw new Error('getGameState: pin is required');
-  return request(`/session/${pin}/state/`, { method: 'GET' });
+  return request(`/session/${pin}/state/`, {method: 'GET'});
 }
-
 
 // Scenario (server requires status === 'in-progress')
 export function getScenario({pin, timeoutMs = 60000}) {

@@ -71,9 +71,7 @@ body {
   position: relative;
   --protrude: 3.2ch;
   display: inline-block;
-    
 }
-
 
 .title .l2 {
   text-indent: calc(-1 * var(--protrude));
