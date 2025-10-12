@@ -309,6 +309,20 @@ class PlayerVoteCheck(APIView):
             return Response({"error": "scenarioId must be provided as an integer"}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+
+class PlayerCountView(APIView):
+    def get(self, request, pin):
+        """
+        Gets the number of players in a session.
+        """
+        try:
+            count = get_player_count(pin)
+            return Response({"pin": pin, "player_count": count}, status=status.HTTP_200_OK)
+        except ValueError as e:
+            return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class GameStateView(APIView):
