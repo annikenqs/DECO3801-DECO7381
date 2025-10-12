@@ -11,9 +11,14 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
+import os
+from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Load environment variables from .env file
+load_dotenv(BASE_DIR / '.env')
 
 
 # Quick-start development settings - unsuitable for production
@@ -25,7 +30,13 @@ SECRET_KEY = 'django-insecure-gf&=hz_jl!_5^3@o&c7q(-4zqb^m4yc$+%x$ndv@rcg*-n!r)$
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ["testserver", "127.0.0.1", "localhost"] # change later
+ALLOWED_HOSTS = [
+    "testserver", 
+    "127.0.0.1", 
+    "localhost",
+    "0.0.0.0",
+    "*",  # 允许所有主机（仅用于开发/测试）
+]
 
 
 # Application definition
@@ -56,7 +67,12 @@ MIDDLEWARE = [
 CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:5500",
     "http://localhost:5500",
+    "http://127.0.0.1:5173",
+    "http://localhost:5173",
 ]
+
+# 开发环境允许所有来源（仅用于测试）
+CORS_ALLOW_ALL_ORIGINS = True  # 警告：生产环境请设置为 False 并配置具体的 ORIGINS
 
 CORS_ALLOW_CREDENTIALS = True
 
@@ -66,7 +82,9 @@ ROOT_URLCONF = 'server.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [
+            BASE_DIR.parent / 'frontend' / 'src' / 'html',  # Frontend HTML files
+        ],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -126,6 +144,13 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+# Additional locations of static files (optional for serving frontend build)
+STATICFILES_DIRS = [
+    # Uncomment this if you want Django to serve the frontend build files
+    # BASE_DIR.parent / 'frontend' / 'dist',
+]
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field

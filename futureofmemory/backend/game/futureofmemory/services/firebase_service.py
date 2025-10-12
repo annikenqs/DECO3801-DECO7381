@@ -70,7 +70,13 @@ def create_session(faction: str, year: int, status: str, pin: int, numberofplaye
         "numberofplayers": numberofplayers,
         "faction": faction,
         "year": year,
-        "scenarios": []
+        "scenarios": [],
+        "factionVotes": [
+            {"faction": "rightists", "votes": 0},
+            {"faction": "resourceists", "votes": 0},
+            {"faction": "responsibilists", "votes": 0}
+        ],
+        "playersWhoVoted": []
     })
     return {"pin": pin, "faction": faction, "year": year}
 
@@ -172,3 +178,112 @@ def update_year(pin: int, new_year: int):
 def update_faction(pin: int, faction: str):
     """Updates the faction for a session."""
     ref.document(pin).update({"faction": faction})
+
+def vote_for_faction(pin: int, faction: str, player_id: str):
+    """
+    Records a player's vote for a faction.
+    Returns updated vote counts and whether all players have voted.
+    """
+    session = get_session_by_pin(pin)
+    if not session:
+        raise ValueError("Invalid PIN.")
+    
+    if faction not in ["rightists", "resourceists", "responsibilists"]:
+        raise ValueError("Invalid faction.")
+    
+    # Check if player already voted
+    players_who_voted = session.get("playersWhoVoted", [])
+    if player_id in players_who_voted:
+        raise ValueError("Player has already voted.")
+    
+    # Update vote count for the faction
+    faction_votes = session.get("factionVotes", [
+        {"faction": "rightists", "votes": 0},
+        {"faction": "resourceists", "votes": 0},
+        {"faction": "responsibilists", "votes": 0}
+    ])
+    
+    for vote_entry in faction_votes:
+        if vote_entry["faction"] == faction:
+            vote_entry["votes"] += 1
+            break
+    
+    # Add player to voted list
+    players_who_voted.append(player_id)
+    
+    # Update Firestore
+    ref.document(pin).update({
+        "factionVotes": faction_votes,
+        "playersWhoVoted": players_who_voted
+    })
+    
+    # Check if all players have voted
+    total_players = session.get("numberOfPlayers", 1)
+    all_voted = len(players_who_voted) >= total_players
+    
+    return {
+        "factionVotes": faction_votes,
+        "playersWhoVoted": players_who_voted,
+        "allVoted": all_voted
+    }
+
+def finalize_faction_vote(pin: int):
+    """
+    Determines the winning faction based on votes.
+    If there's a tie, randomly selects one of the tied factions.
+    Returns the chosen faction.
+    """
+    session = get_session_by_pin(pin)
+    if not session:
+        raise ValueError("Invalid PIN.")
+    
+    faction_votes = session.get("factionVotes", [])
+    
+    # Find the maximum vote count
+    max_votes = max(vote["votes"] for vote in faction_votes)
+    
+    # Get all factions with the maximum votes (handles ties)
+    winning_factions = [
+        vote["faction"] 
+        for vote in faction_votes 
+        if vote["votes"] == max_votes
+    ]
+    
+    # Randomly select if there's a tie
+    chosen_faction = random.choice(winning_factions)
+    
+    # Update the session with the chosen faction
+    ref.document(pin).update({"faction": chosen_faction})
+    
+    return {
+        "faction": chosen_faction,
+        "factionVotes": faction_votes,
+        "wasTie": len(winning_factions) > 1
+    }
+
+def get_faction_votes(pin: int):
+    """
+    Gets current faction vote status.
+    """
+    session = get_session_by_pin(pin)
+    if not session:
+        raise ValueError("Invalid PIN.")
+    
+    faction_votes = session.get("factionVotes", [])
+    players_who_voted = session.get("playersWhoVoted", [])
+    total_players = session.get("numberOfPlayers", 1)
+    all_voted = len(players_who_voted) >= total_players
+    
+    print(f"[get_faction_votes] PIN: {pin}")
+    print(f"[get_faction_votes] Total players: {total_players}")
+    print(f"[get_faction_votes] Players who voted: {len(players_who_voted)} - {players_who_voted}")
+    print(f"[get_faction_votes] All voted: {all_voted}")
+    print(f"[get_faction_votes] Current faction in session: {session.get('faction')}")
+    
+    return {
+        "factionVotes": faction_votes,
+        "totalPlayers": total_players,
+        "votedPlayers": len(players_who_voted),
+        "allVoted": all_voted,
+        "faction": session.get("faction") if all_voted else None
+    }
