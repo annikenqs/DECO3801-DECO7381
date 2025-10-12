@@ -30,6 +30,7 @@ async function fetchPlayerCount() {
   }
 }
 
+// Check game status
 async function checkGameStatus() {
   try {
     const data = await getGameState({ pin });   
@@ -46,9 +47,10 @@ async function checkGameStatus() {
 updatePlayerCount();
 fetchPlayerCount();
 
-setInterval(fetchPlayerCount, 20000);
+setInterval(fetchPlayerCount, 3000);
 setInterval(checkGameStatus, 3000);
 
+// Redirect players to moon.html when starting a game
 startButton.addEventListener('click', async () => {
   if (playerCount === 0) {
     alert('At least 1 player must join before starting.');
