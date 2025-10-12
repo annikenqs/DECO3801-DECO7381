@@ -206,10 +206,6 @@ class ChoiceView(APIView):
         
 class VotingLogicView(APIView):
     def patch(self, request, pin):
-        """
-        Increment the vote tally for a choice in a scenario.
-        Body: {"scenarioId": <int>, "choiceId": <int>}
-        """
         try:
             data = request.data
             scenario_id = int(data.get("scenarioId"))
@@ -221,14 +217,61 @@ class VotingLogicView(APIView):
             if session.get("status") != "in-progress":
                 return Response({"error": "Game has not started yet."}, status=status.HTTP_403_FORBIDDEN)
 
+            # 1) Increment this vote (transaction-safe)
             vote_result = increment_choice_vote(pin, scenario_id, choice_id)
-            # vote_result already contains {"pin","scenarioId","votes", "choices": [...]}
-            return Response(vote_result, status=status.HTTP_200_OK)
+            tally   = {k: int(v) for k, v in vote_result["votes"].items()}
+            choices = vote_result["choices"]
+
+            # 2) Check totals
+            number_of_players = int(session.get("numberofplayers", 0))
+            total_votes = sum(tally.values())
+
+            if number_of_players == 0 or total_votes < number_of_players:
+                # Just return the updated tally we already have
+                return Response({
+                    "pin": pin,
+                    "scenarioId": scenario_id,
+                    "finalized": False,
+                    "total_votes": total_votes,
+                    "number_of_players": number_of_players,
+                    "tally": tally,
+                }, status=status.HTTP_200_OK)
+
+            # 3) Everyone voted -> pick winner from choices we already have
+            winner = max(
+                choices,
+                key=lambda ch: (int(ch.get("votes", 0)), -int(ch.get("id", 0)))
+            )
+
+            # 4) Persist chosen (need current scenarios list)
+            refreshed  = get_session_by_pin(pin)
+            scenarios  = refreshed.get("scenarios", [])
+            current    = next((s for s in scenarios if s.get("id") == scenario_id), None)
+            if not current:
+                return Response({"error": "Scenario not found"}, status=status.HTTP_404_NOT_FOUND)
+
+            current["chosen"] = winner["id"]
+            for i, s in enumerate(scenarios):
+                if s.get("id") == scenario_id:
+                    scenarios[i] = current
+                    break
+            update_scenarios(pin, scenarios)
+
+            return Response({
+                "pin": pin,
+                "scenarioId": scenario_id,
+                "finalized": True,
+                "winnerId": winner["id"],
+                "winnerText": winner.get("text"),
+                "tally": tally,
+            }, status=status.HTTP_200_OK)
 
         except (TypeError, ValueError):
             return Response({"error": "scenarioId and choiceId must be integers"}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
 
 
 # endpoint 1: takes care of voting (based on choice id, it updates number in firebase)
