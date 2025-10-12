@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>API Test - New</title>
+    <style>
+      body { font-family: ui-monospace, Menlo, Consolas, monospace; margin: 1.5rem; }
+      button { margin: .25rem; padding: .5rem 1rem; }
+      #log { background:#0b1b2b; color:#cfe3ff; padding:1rem; margin-top:1rem; white-space:pre-wrap; border-radius:8px; }
+    </style>
+    <!-- If you DON'T use the Vite proxy, uncomment and point to backend:
+    <script>window.__API_BASE__ = 'http://localhost:8000/api';</script>
+    -->
+  </head>
+  <body>
+    <h2>API Test - New</h2>
+    <button id="create">Create Session</button>
+    <button id="start">Start Game</button>
+    <button id="faction">Send Faction (rightists)</button>
+    <button id="scenario">Get Scenario</button>
+
+    <div>PIN: <code id="pin">—</code></div>
+    <pre id="log"></pre>
+
+    <!-- Use a module script so we can import your file -->
+    <script type="module">
+      // adjust the path to where your helper file lives
+        import {
+          createSession,
+          getScenario,
+          sendFaction,
+          sendChoice,
+          request
+        } from '/src/api/futureMemoryApi.js';
+
+      const $ = (id) => document.getElementById(id);
+      const log = (m) => { $('log').textContent += m + '\n'; };
+
+      let pin = null;
+      let lastScenario = null;
+
+      $('create').onclick = async () => {
+        try {
+          const session = await createSession();  // uses defaults
+          pin = session.pin || session.id;
+          $('pin').textContent = pin || '—';
+          log('✅ created: ' + JSON.stringify(session));
+        } catch (e) {
+          log('❌ create failed: ' + (e.message || e));
+        }
+      };
+
+      // Use your exported `request` to hit the state endpoint once to start the game
+      $('start').onclick = async () => {
+        try {
+          if (!pin) throw new Error('create first');
+          const res = await request(`/session/${pin}/state/`, {
+            method: 'PATCH',
+            body: { state: 'in-progress' }
+          });
+          log('✅ started: ' + JSON.stringify(res));
+        } catch (e) {
+          log('❌ start failed: ' + (e.message || e));
+        }
+      };
+
+      $('faction').onclick = async () => {
+        try {
+          if (!pin) throw new Error('create first');
+          const res = await sendFaction({ sessionId: pin, faction: 'rightists' });
+          log('✅ faction set: ' + JSON.stringify(res));
+        } catch (e) {
+          log('❌ faction failed: ' + (e.message || e));
+        }
+      };
+
+      $('scenario').onclick = async () => {
+        try {
+          if (!pin) throw new Error('create first');
+          const sc = await getScenario({ sessionId: pin });
+          lastScenario = sc;
+          log('✅ scenario: ' + JSON.stringify(sc));
+          // if you want to immediately pick first choice for testing:
+          // const choiceId = sc.choices?.[0]?.id;
+          // if (choiceId != null) {
+          //   const next = await sendChoice({ sessionId: pin, scenarioId: sc.id, choiceId });
+          //   log('➡️ next: ' + JSON.stringify(next));
+          // }
+        } catch (e) {
+          log('❌ scenario failed: ' + (e.message || e));
+        }
+      };
+    </script>
+  </body>
+</html>

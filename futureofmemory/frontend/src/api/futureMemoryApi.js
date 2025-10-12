@@ -57,6 +57,16 @@ export async function request(
   return data;
 }
 
+/** ---- Sessions ---- **/
+
+// Create a new game session (PIN can be server-generated; faction/year optional)
+export function createSession({faction = 'Unknown', year = 2075, pin} = {}) {
+  return request('/session/', {
+    method: 'POST',
+    body: {faction, year, ...(pin ? {pin} : {})},
+  });
+}
+
 // Get "The current plot scene to be displayed"
 export function getScenario({sessionId}) {
   if (!sessionId) throw new Error('getScenario: sessionId is required');
@@ -87,13 +97,5 @@ export function sendFaction({sessionId, faction}) {
   return request(`/session/${sessionId}/faction`, {
     method: 'POST',
     body: {faction},
-  });
-}
-
-// Create a new game session
-export async function createSession() {
-  return request('/session/', {
-    method: 'POST',
-    body: {},
   });
 }
