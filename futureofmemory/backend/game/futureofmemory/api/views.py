@@ -85,17 +85,10 @@ class FactionVoteView(APIView):
         try:
             data = request.data
             faction = data.get("faction")
-            player_id = data.get("playerId")  # Could be nickname or a unique ID
 
             if not faction:
                 return Response(
                     {"error": "Faction is required"},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-
-            if not player_id:
-                return Response(
-                    {"error": "Player ID is required"},
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
@@ -110,7 +103,7 @@ class FactionVoteView(APIView):
                 return Response({"error": "Session not found"}, status=status.HTTP_404_NOT_FOUND)
 
             # Record the vote
-            result = vote_for_faction(pin, faction, player_id)
+            result = vote_for_faction(pin, faction)
 
             return Response({
                 "success": True,
