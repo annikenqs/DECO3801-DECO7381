@@ -8,8 +8,6 @@ from game.futureofmemory.services.firebase_service import (
     create_session, get_session_by_pin, add_scenario, update_scenarios, 
     update_year, update_faction, join_session, get_player_count, update_game_state, allocate_pin
 )
-
-
         
 class SessionView(APIView):
     def post(self, request):
@@ -42,22 +40,15 @@ class JoinSessionView(APIView):
         try:
             data = request.data
             pin = data.get("pin")
-            nickname = data.get("nickname")
 
             if not pin:
                 return Response(
                     {"error": "PIN is required"}, 
                     status=status.HTTP_400_BAD_REQUEST
                 )
-            
-            if not nickname:
-                return Response(
-                    {"error": "Nickname is required"}, 
-                    status=status.HTTP_400_BAD_REQUEST
-                )
 
             # Join the session
-            session = join_session(pin, nickname)
+            session = join_session(pin)
             
             # Debug: Check what type session is
             if not isinstance(session, dict):
@@ -69,8 +60,7 @@ class JoinSessionView(APIView):
             return Response({
                 "success": True,
                 "pin": pin,
-                "nickname": nickname,
-                "numberOfPlayers": session.get("numberOfPlayers", [])
+                "numberofplayers": session.get("numberofplayers", [])
             }, status=status.HTTP_200_OK)
 
         except ValueError as e:
@@ -124,7 +114,7 @@ class ScenarioView(APIView):
             if not session:
                 return Response({"error": "Session not found"}, status=status.HTTP_404_NOT_FOUND)
             
-            if session.get("state") != "in-progress":
+            if session.get("status") != "in-progress":
                 return Response({"error": "Game has not started yet."}, status=status.HTTP_403_FORBIDDEN)
 
             # Call RAG to generate a scenario
@@ -167,7 +157,7 @@ class ChoiceView(APIView):
             if not session:
                 return Response({"error": "Session not found"}, status=status.HTTP_404_NOT_FOUND)
             
-            if session.get("state") != "in-progress":
+            if session.get("status") != "in-progress":
                 return Response({"error": "Game has not started yet."}, status=status.HTTP_403_FORBIDDEN)
 
             # Update last scenario's chosen choice
@@ -229,11 +219,11 @@ class PlayerCountView(APIView):
 class GameStateView(APIView):
     def patch(self, request, pin):
         """
-        Updates the game state, typically to start the game.
+        Updates the game status, typically to start the game.
         """
         try:
             data = request.data
-            new_state = data.get("state")
+            new_state = data.get("status")
 
             if not new_state:
                 return Response({"error": "State is required."}, status=status.HTTP_400_BAD_REQUEST)

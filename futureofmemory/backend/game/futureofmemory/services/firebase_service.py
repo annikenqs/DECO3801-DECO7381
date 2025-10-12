@@ -11,8 +11,6 @@ if not firebase_admin._apps:
 db = firestore.client()
 ref = db.collection('games')
 
-
-
 # converts an integer to a six-digit string
 # i.e. 1 => 000001, 3 => 000003, 102345 => 102345
 def integer_to_string(number: int) -> str:
@@ -102,21 +100,7 @@ def update_pin(doc_id: str) -> str:
     doc_ref.update({"pin":new_pin})
     return new_pin
 
-def game_update(pin):
-    doc = db.collection("games").document(pin).get()
-    if (doc.get("numberofplayers") >= 1 or (doc.get("year") == None)): 
-        db.collection("games").document(pin).update({"status": "lobby"})
-    elif (doc.get("year") >= 2075):
-        db.collection("games").document(pin).update({"status": "active"})
-    elif (doc.get("year") == 2085):
-        db.collection("games").document(pin).update({"status": "finished"})
-
-
-
-
-
-
-def join_session(pin: int, nickname: str):
+def join_session(pin: int):
     """
     Adds a player to an existing session if conditions are met.
     """
@@ -129,14 +113,13 @@ def join_session(pin: int, nickname: str):
         print(session.get("status"))
         raise ValueError("Game has already started and cannot be joined.")
 
-    number_of_players = session.get("numberOfPlayers", 0)
+    number_of_players = session.get("numberofplayers", 0)
     if number_of_players >= 5:
         raise ValueError("This game is full.")
 
+    ref.document(pin).update({"numberofplayers": number_of_players + 1})
 
-    ref.document(pin).update({"numberOfPlayers": number_of_players + 1})
-
-    session["numberOfPlayers"] = number_of_players + 1
+    session["numberofplayers"] = number_of_players + 1
     return session
 
 def get_session_by_pin(pin: int):
@@ -151,19 +134,19 @@ def get_player_count(pin: int):
     session = get_session_by_pin(pin)
     if not session:
         raise ValueError("Invalid PIN.")
-    return session.get("numberOfPlayers", 0)
+    return session.get("numberofplayers", 0)
 
 def update_game_state(pin: int, new_state: str):
-    """Updates the state of a game session (e.g., from 'lobby' to 'in-progress')."""
+    """Updates the status of a game session (e.g., from 'lobby' to 'in-progress')."""
     session = get_session_by_pin(pin)
     if not session:
         raise ValueError("Invalid PIN.")
     
     if new_state not in ["lobby", "in-progress", "finished"]:
-        raise ValueError(f"Invalid game state: {new_state}")
+        raise ValueError(f"Invalid game status: {new_state}")
 
-    ref.document(pin).update({"state": new_state})
-    return {"pin": pin, "state": new_state}
+    ref.document(pin).update({"status": new_state})
+    return {"pin": pin, "status": new_state}
 
 # The original get_session is now get_session_by_pin
 get_session = get_session_by_pin
