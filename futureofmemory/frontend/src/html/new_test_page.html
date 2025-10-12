@@ -67,7 +67,7 @@
       $('start').onclick = async () => {
         try {
           if (!pin) throw new Error('create first');
-          const res = await startGame({ sessionId: pin });
+          const res = await startGame({ pin: pin });
           log('✅ started: ' + JSON.stringify(res));
         } catch (e) {
           log('❌ start failed: ' + (e.message || e));
@@ -78,7 +78,7 @@
       $('faction').onclick = async () => {
         try {
           if (!pin) throw new Error('create first');
-          const res = await setFaction({ sessionId: pin, faction: 'rightists' });
+          const res = await setFaction({ pin: pin, faction: 'rightists' });
           log('✅ faction set: ' + JSON.stringify(res));
         } catch (e) {
           log('❌ faction failed: ' + (e.message || e));
@@ -89,7 +89,7 @@
       $('scenario').onclick = async () => {
         try {
           if (!pin) throw new Error('create first');
-          const sc = await getScenario({ sessionId: pin });
+          const sc = await getScenario({ pin: pin });
           lastScenario = sc;
           log('✅ scenario: ' + JSON.stringify(sc));
         } catch (e) {

@@ -66,39 +66,39 @@ export function joinSession({pin}) {
   return request('/session/join/', {method: 'POST', body: {pin}});
 }
 
-export function updateGameStatus({sessionId, status}) {
-  if (!sessionId) throw new Error('updateGameStatus: sessionId is required');
+export function updateGameStatus({pin, status}) {
+  if (!pin) throw new Error('updateGameStatus: pin is required');
   if (!status) throw new Error('updateGameStatus: status is required');
-  return request(`/session/${sessionId}/state/`, {method: 'PATCH', body: {status}});
+  return request(`/session/${pin}/state/`, {method: 'PATCH', body: {status}});
 }
 
-export function startGame({sessionId}) {
-  return updateGameStatus({sessionId, status: 'in-progress'});
+export function startGame({pin}) {
+  return updateGameStatus({pin, status: 'in-progress'});
 }
 
-export function setFaction({sessionId, faction}) {
-  if (!sessionId) throw new Error('setFaction: sessionId is required');
+export function setFaction({pin, faction}) {
+  if (!pin) throw new Error('setFaction: pin is required');
   if (!['rightists', 'resourceists', 'responsibilists'].includes(faction)) {
     throw new Error('setFaction: faction must be rightists | resourceists | responsibilists');
   }
-  return request(`/session/${sessionId}/faction/`, {method: 'POST', body: {faction}});
+  return request(`/session/${pin}/faction/`, {method: 'POST', body: {faction}});
 }
 
 // Scenario (server requires status === 'in-progress')
-export function getScenario({sessionId, timeoutMs = 60000}) {
-  if (!sessionId) throw new Error('getScenario: sessionId is required');
-  return request(`/session/${sessionId}/scenario/`, {
+export function getScenario({pin, timeoutMs = 60000}) {
+  if (!pin) throw new Error('getScenario: pin is required');
+  return request(`/session/${pin}/scenario/`, {
     method: 'POST',
     body: {},
     timeoutMs,
   });
 }
 
-export function sendChoice({sessionId, scenarioId, choiceId, idempotencyKey}) {
-  if (!sessionId) throw new Error('sendChoice: sessionId is required');
+export function sendChoice({pin, scenarioId, choiceId, idempotencyKey}) {
+  if (!pin) throw new Error('sendChoice: pin is required');
   if (scenarioId == null) throw new Error('sendChoice: scenarioId is required');
   if (choiceId == null) throw new Error('sendChoice: choiceId is required');
-  return request(`/session/${sessionId}/choice/`, {
+  return request(`/session/${pin}/choice/`, {
     method: 'PATCH',
     body: {scenarioId, choiceId},
     headers: idempotencyKey ? {'Idempotency-Key': idempotencyKey} : undefined,
