@@ -107,7 +107,7 @@ async function loadStep(i) {
     // eslint-disable-next-line no-unused-vars
   } catch (_err) {
     // Fallback placeholder to keep presentation going
-    scenarioEl.textContent = `Year ${yearOf(stepIndex)}. Backend unavailable; showing placeholder.`;
+    scenarioEl.textContent = `Backend unavailable; showing placeholder.`;
     renderOptions([
       {id: 'A', label: 'A'},
       {id: 'B', label: 'B'},
