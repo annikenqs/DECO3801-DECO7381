@@ -369,7 +369,7 @@ def add_first_scenario_if_absent_txn(transaction: firestore.Transaction, pin: st
     data = snap.to_dict() or {}
     scenarios = data.get("scenarios", [])
     if scenarios:
-        # Another request already created it — return that
+        # Another request already created it
         return scenarios[0]
 
     year = int(data.get("year", 2075))

@@ -133,17 +133,6 @@ export function getCurrentScenario({pin, timeoutMs = 12000}) {
   });
 }
 
-// export function sendChoice({pin, scenarioId, choiceId, idempotencyKey}) {
-//   if (!pin) throw new Error('sendChoice: pin is required');
-//   if (scenarioId == null) throw new Error('sendChoice: scenarioId is required');
-//   if (choiceId == null) throw new Error('sendChoice: choiceId is required');
-//   return request(`/session/${pin}/choice/`, {
-//     method: 'PATCH',
-//     body: {scenarioId, choiceId},
-//     headers: idempotencyKey ? {'Idempotency-Key': idempotencyKey} : undefined,
-//   });
-// }
-
 const letterToId = (x) => ({A: 1, B: 2, C: 3})[String(x).toUpperCase()] ?? Number(x);
 
 export function castScenarioVote({pin, scenarioId, choice}) {

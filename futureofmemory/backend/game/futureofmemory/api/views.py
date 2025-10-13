@@ -176,6 +176,11 @@ class FactionResultView(APIView):
             )
 
 class ScenarioView(APIView):
+    """
+    POST /api/session/{pin}/scenario/
+    Returns the current scenario if one exists, or generates a new scenario candidate
+    for the given session. Ensures only one scenario is created.
+    """
     def post(self, request, pin):
         try:
             session = get_session_by_pin(pin)
@@ -227,6 +232,11 @@ class ScenarioView(APIView):
                             status=status.HTTP_502_BAD_GATEWAY)
 
 class NextScenarioView(APIView):
+    """
+    POST /api/session/{pin}/scenario/next/
+    Generates and returns the next scenario in the session, based on the previous
+    scenario’s chosen outcome. Ensures only one new scenario is appended.
+    """
     def post(self, request, pin):
         try:
             data = request.data or {}
@@ -291,6 +301,10 @@ class NextScenarioView(APIView):
                             status=status.HTTP_502_BAD_GATEWAY)
 
 class CurrentScenarioView(APIView):
+    """
+    GET /api/session/{pin}/scenario/current/
+    Fetches the current scenario for the session. Returns 404 if no scenario exists yet.
+    """
     def get(self, request, pin):
         session = get_session_by_pin(pin)
         if not session:
@@ -298,86 +312,10 @@ class CurrentScenarioView(APIView):
 
         scenarios = session.get("scenarios", [])
         if not scenarios:
-            # IMPORTANT: 404 when nothing exists yet
+            # 404 when nothing exists yet
             return Response({"detail": "No scenario yet"}, status=status.HTTP_404_NOT_FOUND)
 
-        # If you want “latest” instead of first, use scenarios[-1]
         return Response(scenarios[0], status=status.HTTP_200_OK)
-
-
-# class ChoiceView(APIView):
-#     def patch(self, request, pin):
-#         """
-#         Mark a choice as chosen, then generate the next scenario.
-#         """
-#         try:
-#             data = request.data
-#             choice_id = data.get("choiceId")
-#             scenario_id = data.get("scenarioId")
-
-#             session = get_session_by_pin(pin)
-#             if not session:
-#                 return Response({"error": "Session not found"}, status=status.HTTP_404_NOT_FOUND)
-            
-#             if session.get("status") != "in-progress":
-#                 return Response({"error": "Game has not started yet."}, status=status.HTTP_403_FORBIDDEN)
-
-#             # Update last scenario's chosen choice
-#             scenarios = session.get("scenarios", [])
-#             for s in scenarios:
-#                 if s["id"] == scenario_id:
-#                     s["chosen"] = choice_id
-#             update_scenarios(pin, scenarios)
-
-#             # calculate new year
-#             new_year = session["year"] + 1
-            
-#             chosen_choice_text = None
-#             for c in scenarios[-1]["choices"]:
-#                 if c["id"] == choice_id:
-#                     chosen_choice_text = c["text"]
-
-#             # Generate new scenario
-#             result = run_rag(
-#                 question="Generate next scenario",
-#                 year=new_year,
-#                 scenario=scenarios[-1]["text"],
-#                 chosen_choice=chosen_choice_text,
-#                 faction=session["faction"]
-#             )
-
-#             scenario_data = result.get("scenario", {})
-#             scenario_text = scenario_data.get("scenario_text", "No scenario generated")
-#             raw_choices = scenario_data.get("choices", [])
-            
-#             # Convert choices format
-#             letter_map = {1: "A", 2: "B", 3: "C"}
-#             choices = []
-#             for choice in raw_choices[:3]:
-#                 choice_id = choice.get("id", 1)
-#                 choice_text = choice.get("text", f"Option {choice_id}")
-#                 letter = letter_map.get(choice_id, "A")
-#                 choices.append({
-#                     "id": letter,
-#                     "text": choice_text,
-#                     "label": f"{letter}: {choice_text}"
-#                 })
-
-#             new_scenario = {
-#                 "id": len(scenarios) + 1,
-#                 "text": scenario_text,
-#                 "choices": choices,
-#                 "chosen": None,
-#                 "year": new_year
-#             }
-#             add_scenario(pin, new_scenario)
-            
-#             update_year(pin, new_year)
-
-#             return Response(new_scenario, status=status.HTTP_200_OK)
-
-#         except Exception as e:
-#             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
 class VotingLogicView(APIView):
     def patch(self, request, pin):

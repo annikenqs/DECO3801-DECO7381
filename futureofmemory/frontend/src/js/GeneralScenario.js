@@ -136,7 +136,7 @@ async function loadStep(i) {
     if (err && err.status === 404) {
       try {
         console.log('[loadStep] creating first scenario via POST …');
-        const created = await getScenario({pin}); // POST /scenario/
+        const created = await getScenario({pin});
         console.log('[loadStep] created scenario', created);
         renderScenarioAndChoices(created);
       } catch (inner) {
