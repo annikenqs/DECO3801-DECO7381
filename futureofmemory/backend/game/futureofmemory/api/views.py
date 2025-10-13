@@ -9,7 +9,7 @@ from game.futureofmemory.services.firebase_service import (
     create_session, get_session_by_pin, add_scenario, update_scenarios, 
     update_year, join_session, get_player_count, update_game_state, allocate_pin,
     vote_for_faction, finalize_faction_vote, get_faction_votes,
-    increment_choice_vote, pick_winner_from_choices
+    increment_choice_vote, pick_winner_from_choices, add_first_scenario_if_absent, 
 )
         
 class SessionView(APIView):
@@ -178,131 +178,217 @@ class FactionResultView(APIView):
 class ScenarioView(APIView):
     def post(self, request, pin):
         try:
-            print(f"[ScenarioView] Generating scenario for PIN: {pin}")
             session = get_session_by_pin(pin)
             if not session:
                 return Response({"error": "Session not found"}, status=status.HTTP_404_NOT_FOUND)
-            
             if session.get("status") != "in-progress":
                 return Response({"error": "Game has not started yet."}, status=status.HTTP_403_FORBIDDEN)
+            if not session.get("faction"):
+                return Response({"error": "Faction not finalized yet."}, status=status.HTTP_409_CONFLICT)
 
-            print(f"[ScenarioView] Session found. Year: {session['year']}, Faction: {session['faction']}")
-            
-            # Call RAG to generate a scenario
-            print("[ScenarioView] Calling RAG...")
-            result = run_rag(
-                question="Generate a scenario",
-                year=session["year"],
-                faction=session["faction"] 
-            )
-            print(f"[ScenarioView] RAG completed")
-            
-            scenario_data = result.get("scenario", {})
-            scenario_text = scenario_data.get("scenario_text", "No scenario generated")
-            raw_choices = scenario_data.get("choices", [])
-            
-            # Convert choices format: {"id": 1, "text": "..."} -> {"id": "A", "text": "...", "label": "A: ..."}
-            letter_map = {1: "A", 2: "B", 3: "C"}
-            choices = []
-            for choice in raw_choices[:3]:
-                choice_id = choice.get("id", 1)
-                choice_text = choice.get("text", f"Option {choice_id}")
-                letter = letter_map.get(choice_id, "A")
-                choices.append({
-                    "id": letter,
-                    "text": choice_text,
-                    "label": f"{letter}: {choice_text}"
-                })
+            # If already exists, let the transactional helper return the existing one anyway
+            # Build a "candidate" scenario from RAG (or fallback)
+            try:
+                rag_result = run_rag(
+                    question="Generate a scenario",
+                    year=session["year"],
+                    faction=session["faction"]
+                )
+            except Exception as e:
+                print(f"[ScenarioView] RAG ERROR: {type(e).__name__}: {e}")
+                rag_result = None
 
-            # Store scenario in Firebase
-            scenario = {
-                "id": len(session.get("scenarios", [])) + 1,
-                "text": scenario_text,
-                "choices": choices,
-                "chosen": None,
-                "year": session["year"]
+            scenario_data = {}
+            if isinstance(rag_result, dict):
+                scenario_data = rag_result.get("scenario") or rag_result
+
+            candidate = {
+                "text": (
+                    scenario_data.get("scenario_text")
+                    or scenario_data.get("text")
+                    or "No scenario generated (fallback)"
+                ),
+                "choices": scenario_data.get("choices") or [],
             }
-            add_scenario(pin, scenario)
 
-            return Response(scenario, status=status.HTTP_200_OK)
+            # Atomic create-if-absent (or return existing)
+            persisted = add_first_scenario_if_absent(pin, candidate)
+
+            return Response(persisted, status=status.HTTP_200_OK)
 
         except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            print(f"[ScenarioView] UNEXPECTED ERROR: {type(e).__name__}: {e}")
+            return Response({"error": "Scenario generation failed", "details": str(e)},
+                            status=status.HTTP_502_BAD_GATEWAY)
 
-
-class ChoiceView(APIView):
-    def patch(self, request, pin):
-        """
-        Mark a choice as chosen, then generate the next scenario.
-        """
+class NextScenarioView(APIView):
+    def post(self, request, pin):
         try:
-            data = request.data
-            choice_id = data.get("choiceId")
-            scenario_id = data.get("scenarioId")
+            data = request.data or {}
+            prev_id = int(data.get("previousScenarioId", 0))
 
             session = get_session_by_pin(pin)
             if not session:
                 return Response({"error": "Session not found"}, status=status.HTTP_404_NOT_FOUND)
-            
             if session.get("status") != "in-progress":
                 return Response({"error": "Game has not started yet."}, status=status.HTTP_403_FORBIDDEN)
 
-            # Update last scenario's chosen choice
             scenarios = session.get("scenarios", [])
-            for s in scenarios:
-                if s["id"] == scenario_id:
-                    s["chosen"] = choice_id
-            update_scenarios(pin, scenarios)
+            if not scenarios:
+                return Response({"error": "No previous scenario exists. Call /scenario/ first."},
+                                status=status.HTTP_409_CONFLICT)
 
-            # calculate new year
-            new_year = session["year"] + 1
-            
-            chosen_choice_text = None
-            for c in scenarios[-1]["choices"]:
-                if c["id"] == choice_id:
-                    chosen_choice_text = c["text"]
+            prev = next((s for s in scenarios if s.get("id") == prev_id), scenarios[-1])
+            if prev.get("chosen") is None:
+                return Response({"error": "Previous scenario not finalized (no winner)."},
+                                status=status.HTTP_409_CONFLICT)
 
-            # Generate new scenario
-            result = run_rag(
-                question="Generate next scenario",
-                year=new_year,
-                scenario=scenarios[-1]["text"],
-                chosen_choice=chosen_choice_text,
-                faction=session["faction"]
+            # Idempotency: if a newer scenario already exists, return it
+            expected_new_id = max(s.get("id", 0) for s in scenarios) + 1
+            existing = next((s for s in scenarios if s.get("id") == expected_new_id), None)
+            if existing:
+                return Response(existing, status=status.HTTP_200_OK)
+
+            # Build inputs for RAG
+            chosen_text = next((c.get("text") for c in prev.get("choices", [])
+                                if int(c.get("id")) == int(prev["chosen"])), None)
+
+            new_year = int(session["year"]) + 1
+
+            try:
+                rag_result = run_rag(
+                    question="Generate next scenario",
+                    year=new_year,
+                    scenario=prev.get("text"),
+                    chosen_choice=chosen_text,
+                    faction=session.get("faction")
+                )
+            except Exception as e:
+                print(f"[NextScenarioView] RAG ERROR: {type(e).__name__}: {e}")
+                rag_result = None
+
+            scenario_data = {}
+            if isinstance(rag_result, dict):
+                scenario_data = rag_result.get("scenario") or rag_result
+
+            scenario_text = (
+                scenario_data.get("scenario_text")
+                or scenario_data.get("text")
+                or "No scenario generated (fallback)"
             )
+            raw_choices = scenario_data.get("choices") or []
+            if not isinstance(raw_choices, list) or not raw_choices:
+                raw_choices = [
+                    {"id": 1, "text": "Fallback choice A"},
+                    {"id": 2, "text": "Fallback choice B"},
+                    {"id": 3, "text": "Fallback choice C"},
+                ]
 
-            scenario_data = result.get("scenario", {})
-            scenario_text = scenario_data.get("scenario_text", "No scenario generated")
-            raw_choices = scenario_data.get("choices", [])
-            
-            # Convert choices format
             letter_map = {1: "A", 2: "B", 3: "C"}
             choices = []
-            for choice in raw_choices[:3]:
-                choice_id = choice.get("id", 1)
-                choice_text = choice.get("text", f"Option {choice_id}")
-                letter = letter_map.get(choice_id, "A")
+            for idx, ch in enumerate(raw_choices[:3], start=1):
+                cid = ch.get("id", idx)
+                if isinstance(cid, str) and cid.upper() in ("A", "B", "C"):
+                    cid = {"A": 1, "B": 2, "C": 3}[cid.upper()]
+                ctext = ch.get("text") or ch.get("label") or f"Option {letter_map.get(int(cid), 'A')}"
                 choices.append({
-                    "id": letter,
-                    "text": choice_text,
-                    "label": f"{letter}: {choice_text}"
+                    "id": int(cid),
+                    "text": ctext,
+                    "label": f"{letter_map.get(int(cid), 'A')}: {ctext}",
+                    "votes": int(ch.get("votes", 0)),
                 })
 
             new_scenario = {
-                "id": len(scenarios) + 1,
+                "id": expected_new_id,
                 "text": scenario_text,
                 "choices": choices,
                 "chosen": None,
-                "year": new_year
+                "year": new_year,
             }
             add_scenario(pin, new_scenario)
-            
             update_year(pin, new_year)
 
             return Response(new_scenario, status=status.HTTP_200_OK)
 
         except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            print(f"[NextScenarioView] UNEXPECTED ERROR: {type(e).__name__}: {e}")
+            return Response({"error": "Next scenario generation failed", "details": str(e)},
+                            status=status.HTTP_502_BAD_GATEWAY)
+
+
+# class ChoiceView(APIView):
+#     def patch(self, request, pin):
+#         """
+#         Mark a choice as chosen, then generate the next scenario.
+#         """
+#         try:
+#             data = request.data
+#             choice_id = data.get("choiceId")
+#             scenario_id = data.get("scenarioId")
+
+#             session = get_session_by_pin(pin)
+#             if not session:
+#                 return Response({"error": "Session not found"}, status=status.HTTP_404_NOT_FOUND)
+            
+#             if session.get("status") != "in-progress":
+#                 return Response({"error": "Game has not started yet."}, status=status.HTTP_403_FORBIDDEN)
+
+#             # Update last scenario's chosen choice
+#             scenarios = session.get("scenarios", [])
+#             for s in scenarios:
+#                 if s["id"] == scenario_id:
+#                     s["chosen"] = choice_id
+#             update_scenarios(pin, scenarios)
+
+#             # calculate new year
+#             new_year = session["year"] + 1
+            
+#             chosen_choice_text = None
+#             for c in scenarios[-1]["choices"]:
+#                 if c["id"] == choice_id:
+#                     chosen_choice_text = c["text"]
+
+#             # Generate new scenario
+#             result = run_rag(
+#                 question="Generate next scenario",
+#                 year=new_year,
+#                 scenario=scenarios[-1]["text"],
+#                 chosen_choice=chosen_choice_text,
+#                 faction=session["faction"]
+#             )
+
+#             scenario_data = result.get("scenario", {})
+#             scenario_text = scenario_data.get("scenario_text", "No scenario generated")
+#             raw_choices = scenario_data.get("choices", [])
+            
+#             # Convert choices format
+#             letter_map = {1: "A", 2: "B", 3: "C"}
+#             choices = []
+#             for choice in raw_choices[:3]:
+#                 choice_id = choice.get("id", 1)
+#                 choice_text = choice.get("text", f"Option {choice_id}")
+#                 letter = letter_map.get(choice_id, "A")
+#                 choices.append({
+#                     "id": letter,
+#                     "text": choice_text,
+#                     "label": f"{letter}: {choice_text}"
+#                 })
+
+#             new_scenario = {
+#                 "id": len(scenarios) + 1,
+#                 "text": scenario_text,
+#                 "choices": choices,
+#                 "chosen": None,
+#                 "year": new_year
+#             }
+#             add_scenario(pin, new_scenario)
+            
+#             update_year(pin, new_year)
+
+#             return Response(new_scenario, status=status.HTTP_200_OK)
+
+#         except Exception as e:
+#             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
 class VotingLogicView(APIView):
     def patch(self, request, pin):
