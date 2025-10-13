@@ -1,6 +1,4 @@
-# DECO3801-DECO7381 
-1-page README which must outline to markers all external data files, libraries
-needed with setup instructions to run your project.
+# DECO3801-DECO7381: Future of Memory 
 
 ### Frontend setup
 Starting the server:
@@ -17,26 +15,54 @@ npm run dev
 ```
 ### Backend setup
 
-Installing all prerequisite material for the backend:
+The backend is built with **Python** and **Django**. Follow the steps below to install dependencies, set up the environment, and run the server.
+
+### 1. Navigate to the backend directory
 ```bash
 cd futureofmemory/backend
 ```
+
+### 2. Create virtual environment
+```bash
+python -m venv venv
+```
+### 3. Activate virtual environment
+- Mac
+    ```bash
+    source venv/bin/activate
+    ```
+- Windows
+    ```bash
+    venv\Scripts\activate
+    ```
+### 4. Install required dependencies
+
 ```bash
 pip install -m requirements.txt
 ```
 
-Starting the server:
-```bash
-cd futureofmemory/backend
-```
+### 5. Set up environment variables
+- Mac
+    ```bash
+    export GOOGLE_API_KEY="Your_Google_API_Key"
+    ```
+- Windows
+    ```bash
+    set GOOGLE_API_KEY="Your_Google_API_Key"
+    ```
+
+### 6. Start the backend server
 ```bash
 python manage.py runserver
 ```
-Entering commands:
 
-```bash
-cd futureofmemory/backend
-```
-```bash
-source venv/bin/activate
-```
+## Formatting and linting
+The application uses Prettier to format, and ESlint for linting. The most useful commands include:
+
+```npm run lint``` → Runs ESLint (with Prettier plugin)
+
+```npm run lint:fix``` → Fixes ESLint issues
+
+```npm run format``` → Formats only
+
+```npm run check``` → Runs both ESLint and Prettier checks (used for CI)
