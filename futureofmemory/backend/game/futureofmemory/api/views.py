@@ -2,12 +2,14 @@ import uuid
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
+import random
 
 from game.futureofmemory.services.query_service import run_rag
 from game.futureofmemory.services.firebase_service import (
     create_session, get_session_by_pin, add_scenario, update_scenarios, 
     update_year, join_session, get_player_count, update_game_state, allocate_pin,
-    vote_for_faction, finalize_faction_vote, get_faction_votes
+    vote_for_faction, finalize_faction_vote, get_faction_votes,
+    increment_choice_vote, pick_winner_from_choices
 )
         
 class SessionView(APIView):
@@ -31,11 +33,10 @@ class SessionView(APIView):
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-
 class JoinSessionView(APIView):
     """
     POST /api/join/
-    Allows a player to join an existing session using PIN and nickname.
+    Allows a player to join an existing session using PIN
     """
     def post(self, request):
         try:
@@ -252,8 +253,8 @@ class ChoiceView(APIView):
                 if s["id"] == scenario_id:
                     s["chosen"] = choice_id
             update_scenarios(pin, scenarios)
-            
-            # Calculate new year
+
+            # calculate new year
             new_year = session["year"] + 1
             
             chosen_choice_text = None
@@ -302,6 +303,144 @@ class ChoiceView(APIView):
 
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+class VotingLogicView(APIView):
+    def patch(self, request, pin):
+        try:
+            data = request.data
+            scenario_id = data.get("scenarioId")
+            choice_id   = data.get("choiceId")
+
+            session = get_session_by_pin(pin)
+            if not session:
+                return Response({"error": "Session not found"}, status=status.HTTP_404_NOT_FOUND)
+            if session.get("status") != "in-progress":
+                return Response({"error": "Game has not started yet."}, status=status.HTTP_403_FORBIDDEN)
+
+            # 1) Increment this vote (transaction-safe)
+            vote_result = increment_choice_vote(pin, scenario_id, choice_id)
+            tally   = {k: int(v) for k, v in vote_result["votes"].items()}
+
+            # 2) Check totals
+            number_of_players = int(session.get("numberofplayers", 0))
+            total_votes = sum(tally.values())
+
+            return Response({
+                    "pin": pin,
+                    "scenarioId": scenario_id,
+                    "finalized": False,
+                    "total_votes": total_votes,
+                    "number_of_players": number_of_players,
+                    "tally": tally,
+                }, status=status.HTTP_200_OK)
+        
+        except (TypeError, ValueError):
+            return Response({"error": "scenarioId and choiceId must be integers"}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+
+
+# endpoint 1: takes care of voting (based on choice id, it updates number in firebase)
+
+# endpoint 2: checks how many players have voted so far, and check it against the number of players
+# returns the choiceID of the picked choice
+
+class PlayerVoteCheck(APIView):
+    def get(self, request, pin):
+        """
+        Check how many players have voted vs total players.
+        Query: ?scenarioId=<int>&finalize=true|false
+        - If finalize=true and everyone voted: persist chosen (winner) and return winnerId.
+        - Otherwise just return the current tally and progress.
+        """
+        try:
+            scenario_id = int(request.query_params.get("scenarioId"))
+        except (TypeError, ValueError):
+            return Response({"error": "scenarioId must be provided as an integer"},
+                            status=status.HTTP_400_BAD_REQUEST)
+        try:
+            session = get_session_by_pin(pin)
+            if not session:
+                return Response({"error": "Session not found"}, status=status.HTTP_404_NOT_FOUND)
+            if session.get("status") != "in-progress":
+                return Response({"error": "Game has not started yet."}, status=status.HTTP_403_FORBIDDEN)
+
+            scenarios = session.get("scenarios", [])
+            current = next((s for s in scenarios if s.get("id") == scenario_id), None)
+            if not current:
+                return Response({"error": "Scenario not found"}, status=status.HTTP_404_NOT_FOUND)
+
+            number_of_players = int(session.get("numberofplayers", 0))
+            tally = {str(ch["id"]): int(ch.get("votes", 0)) for ch in current.get("choices", [])}
+            total_votes = sum(tally.values())
+
+            # If already finalised, return the winner
+            if current.get("chosen") is not None:
+                chosen_id = int(current["chosen"])
+                chosen_text = next((c.get("text") for c in current.get("choices", []) 
+                    if int(c.get("id")) == chosen_id), None)
+                return Response({
+                    "pin": pin,
+                    "scenarioId": scenario_id,
+                    "persisted": True,
+                    "winnerId": chosen_id,
+                    "winnerText": chosen_text,
+                    "tally": tally,
+                    "total_votes": total_votes,
+                    "number_of_players": number_of_players,
+                }, status=status.HTTP_200_OK)
+
+            # if everyone hasn't voted yet: return what we've got so far
+            if number_of_players == 0 or total_votes < number_of_players:
+                return Response({
+                    "pin": pin,
+                    "scenarioId": scenario_id,
+                    "persisted": False,
+                    "ready_to_finalize": (number_of_players > 0 and total_votes == number_of_players),
+                    "tally": tally,
+                    "total_votes": total_votes,
+                    "number_of_players": number_of_players,
+                }, status=status.HTTP_200_OK)
+            
+            # just in case there's too many votes
+            if total_votes > number_of_players:
+                return Response({
+                    "pin": pin,
+                    "scenarioId": scenario_id,
+                    "persisted": False,
+                    "oversubscribed": True,
+                    "tally": tally,
+                    "total_votes": total_votes,
+                    "number_of_players": number_of_players,
+                }, status=status.HTTP_200_OK)
+            else:
+                # Everyone has voted -> pick winner and persist (single-shot)
+                winner = pick_winner_from_choices(current["choices"])  # deterministic tie-breaker recommended
+                current["chosen"] = winner["id"]
+
+                for i, s in enumerate(scenarios):
+                    if s.get("id") == scenario_id:
+                        scenarios[i] = current
+                        break
+
+                update_scenarios(pin, scenarios)  # persist
+
+                return Response({
+                    "pin": pin,
+                    "scenarioId": scenario_id,
+                    "persisted": True,
+                    "winnerId": winner["id"],
+                    "winnerText": winner.get("text"),
+                    "tally": tally,
+                    "total_votes": total_votes,
+                    "number_of_players": number_of_players,
+                }, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
 
 class PlayerCountView(APIView):
     def get(self, request, pin):
@@ -315,6 +454,7 @@ class PlayerCountView(APIView):
             return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 class GameStateView(APIView):
     def get(self, request, pin):
