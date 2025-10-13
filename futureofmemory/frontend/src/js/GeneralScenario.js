@@ -1,4 +1,4 @@
-import {createSession, getScenario, sendChoice} from '../api/FutureMemoryApi.js';
+import {createSession, getScenario, sendChoice} from '../api/futureMemoryApi.js';
 
 (() => {
   const TOTAL_STEPS = 10; // 2075..2084

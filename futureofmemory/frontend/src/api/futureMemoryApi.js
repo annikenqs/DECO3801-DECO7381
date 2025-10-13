@@ -84,12 +84,9 @@ export function startGame({pin}) {
   return updateGameStatus({pin, status: 'in-progress'});
 }
 
-export function setFaction({pin, faction}) {
-  if (!pin) throw new Error('setFaction: pin is required');
-  if (!['rightists', 'resourceists', 'responsibilists'].includes(faction)) {
-    throw new Error('setFaction: faction must be rightists | resourceists | responsibilists');
-  }
-  return request(`/session/${pin}/faction/`, {method: 'POST', body: {faction}});
+export function checkFactionVoting({ pin }) {
+  if (!pin) throw new Error('checkFactionVoting: pin is required');
+  return request(`/session/${pin}/faction/result/`, { method: 'GET' });
 }
 
 export function getGameState({pin}) {
