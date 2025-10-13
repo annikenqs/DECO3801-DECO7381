@@ -52,3 +52,6 @@ serviceAccountKey.json
 
 # Jupyter
 .ipynb_checkpoints/
+
+# AWS / SageMaker local config
+.aws/

@@ -14,3 +14,7 @@ pypdf
 docx2txt
 
 typing_extensions
+boto3>=1.34
+botocore>=1.34
+sagemaker>=2.224
+huggingface-hub>=0.24
