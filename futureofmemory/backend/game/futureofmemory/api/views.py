@@ -217,6 +217,17 @@ class PlayerCountView(APIView):
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class GameStateView(APIView):
+    def get(self, request, pin):
+        """
+        Returns the current game status (e.g. lobby, in-progress, finished).
+        """
+        try:
+            session = get_session_by_pin(pin)
+            if not session:
+                return Response({"error": "Session not found"}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"status": session.get("status", "lobby")}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     def patch(self, request, pin):
         """
         Updates the game status, typically to start the game.

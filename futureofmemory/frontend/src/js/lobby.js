@@ -1,8 +1,10 @@
+import {getPlayerCount, updateGameStatus, getGameState} from '/src/api/futureMemoryApi.js';
+
 // lobby.js
 
 // Get Game PIN from URL
 const urlParams = new URLSearchParams(window.location.search);
-const pin = urlParams.get('pin') || '123456'; // fallback
+const pin = urlParams.get('pin');
 document.getElementById('game-pin-display').textContent = `Game PIN: ${pin}`;
 
 const playersInfo = document.getElementById('players-info');
@@ -16,21 +18,48 @@ function updatePlayerCount() {
   playersInfo.innerHTML = `<p>${playerCount} / ${maxPlayers} players joined</p>`;
 }
 
+// Fetch player count
+async function fetchPlayerCount() {
+  try {
+    const data = await getPlayerCount({pin});
+    playerCount = data.player_count ?? 0;
+    updatePlayerCount();
+  } catch (err) {
+    console.error('Error fetching player count:', err);
+    playersInfo.innerHTML = `<p class="error">Could not load player count</p>`;
+  }
+}
+
+// Check game status
+async function checkGameStatus() {
+  try {
+    const data = await getGameState({pin});
+    if (data?.status === 'in-progress') {
+      window.location.href = `moon.html?pin=${encodeURIComponent(pin)}`;
+    }
+  } catch (err) {
+    console.warn('Could not fetch game status:', err);
+  }
+}
+
 // Initial state
 updatePlayerCount();
+fetchPlayerCount();
 
-// Simulate you joining after 1 second
-setTimeout(() => {
-  playerCount = 1;
-  updatePlayerCount();
-}, 1000);
+setInterval(fetchPlayerCount, 3000);
+setInterval(checkGameStatus, 3000);
 
-startButton.addEventListener('click', () => {
+// Redirect players to moon.html when starting a game
+startButton.addEventListener('click', async () => {
   if (playerCount === 0) {
     alert('At least 1 player must join before starting.');
     return;
   }
-  alert('Game starting...');
-  // Redirect to actual game page later
-  // window.location.href = "game.html";
+  try {
+    await updateGameStatus({pin, status: 'in-progress'});
+    window.location.href = `moon.html?pin=${encodeURIComponent(pin)}`;
+  } catch (err) {
+    console.error('Failed to start game:', err);
+    alert('Failed to start game.');
+  }
 });
