@@ -34,13 +34,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Skip button
-  if (skipBtn) {
-    skipBtn.addEventListener('click', () => {
-      window.location.href = './scenario1.html';
-    });
-  }
-
   // Keyboard shortcuts
   document.addEventListener('keydown', (e) => {
     // r = replay

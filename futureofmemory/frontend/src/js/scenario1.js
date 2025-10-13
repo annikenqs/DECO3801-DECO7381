@@ -1,5 +1,5 @@
 // scenario1.js
-import { checkFactionVoting } from '../api/futureMemoryApi.js';
+import {checkFactionVoting} from '../api/futureMemoryApi.js';
 
 const STORAGE_KEY = 'worldMode';
 const API_BASE = '/api';
@@ -9,23 +9,13 @@ function getPinFromUrl() {
   return params.get('pin');
 }
 
-// --- helper: ensure session ID exists ---
-function ensureSession() {
-  let sid = localStorage.getItem('fmSessionId');
-  if (!sid) {
-    sid = crypto.randomUUID ? crypto.randomUUID() : String(Date.now());
-    localStorage.setItem('fmSessionId', sid);
-  }
-  return sid;
-}
-
 // --- send vote to backend ---
 async function voteForFaction(pin, faction) {
   try {
     const res = await fetch(`${API_BASE}/session/${pin}/faction/vote/`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ faction }),
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({faction}),
     });
 
     const data = await res.json();
@@ -44,7 +34,6 @@ async function voteForFaction(pin, faction) {
       showMessage(`All players have voted! Final faction: ${data.faction}`);
       goToNextPage(data.faction);
     }
-
   } catch (err) {
     console.error('Vote failed:', err);
     showMessage('An error occurred. Please try again.');
@@ -55,7 +44,7 @@ async function voteForFaction(pin, faction) {
 // --- poll status ---
 async function pollVotingStatus(pin) {
   try {
-    const status = await checkFactionVoting({ pin });
+    const status = await checkFactionVoting({pin});
     console.log('[Polling] Faction vote status:', status);
 
     if (status.allVoted && status.faction) {
@@ -86,7 +75,7 @@ function showMessage(msg) {
   }
   msgEl.textContent = msg;
 }
-function goToNextPage(faction) {
+function goToNextPage() {
   const nextUrl = 'GeneralScenario.html';
   setTimeout(() => (location.href = nextUrl), 4000);
 }
@@ -94,7 +83,7 @@ function goToNextPage(faction) {
 // --- main ---
 document.addEventListener('DOMContentLoaded', () => {
   const choices = document.querySelectorAll('.choice');
-  const pin = getPinFromUrl(); 
+  const pin = getPinFromUrl();
 
   if (!pin) {
     showMessage('Error: no PIN found in URL.');
@@ -107,10 +96,9 @@ document.addEventListener('DOMContentLoaded', () => {
       choices.forEach((b) => b.classList.remove('selected'));
       btn.classList.add('selected');
 
-      const sessionId = ensureSession();
       localStorage.setItem(
         STORAGE_KEY,
-        JSON.stringify({ faction, decidedAt: new Date().toISOString() })
+        JSON.stringify({faction, decidedAt: new Date().toISOString()})
       );
 
       await voteForFaction(pin, faction);
