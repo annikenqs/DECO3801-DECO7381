@@ -191,7 +191,6 @@ class ScenarioView(APIView):
             # Call RAG to generate a scenario
             print("[ScenarioView] Calling RAG...")
             result = run_rag(
-                question="Generate a scenario",
                 year=session["year"],
                 faction=session["faction"] 
             )
@@ -220,7 +219,8 @@ class ScenarioView(APIView):
                 "text": scenario_text,
                 "choices": choices,
                 "chosen": None,
-                "year": session["year"]
+                "year": session["year"],
+                "citations": scenario_data.get("citations", [])
             }
             add_scenario(pin, scenario)
 
@@ -264,7 +264,6 @@ class ChoiceView(APIView):
 
             # Generate new scenario
             result = run_rag(
-                question="Generate next scenario",
                 year=new_year,
                 scenario=scenarios[-1]["text"],
                 chosen_choice=chosen_choice_text,
@@ -293,7 +292,8 @@ class ChoiceView(APIView):
                 "text": scenario_text,
                 "choices": choices,
                 "chosen": None,
-                "year": new_year
+                "year": new_year,
+                "citations": scenario_data.get("citations", [])
             }
             add_scenario(pin, new_scenario)
             
