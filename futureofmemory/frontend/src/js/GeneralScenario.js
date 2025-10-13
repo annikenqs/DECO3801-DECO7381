@@ -1,6 +1,7 @@
-import {createSession, getScenario, sendChoice} from '../api/futureMemoryApi.js';
+import {getScenario, sendChoice} from '../api/futureMemoryApi.js';
 
 const START_YEAR = 2075;
+const TOTAL_STEPS = 10;
 
 const progressEl = document.getElementById('progress');
 const scenarioEl = document.getElementById('scenarioText');
