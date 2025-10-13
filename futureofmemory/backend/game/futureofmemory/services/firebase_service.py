@@ -174,10 +174,6 @@ def update_year(pin: int, new_year: int):
     """Updates the year for a session."""
     ref.document(pin).update({"year": new_year})
 
-def update_faction(pin: int, faction: str):
-    """Updates the faction for a session."""
-    ref.document(pin).update({"faction": faction})
-
 
 def vote_for_faction(pin: str, faction: str):
     """

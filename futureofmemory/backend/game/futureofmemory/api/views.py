@@ -6,7 +6,7 @@ from rest_framework import status
 from game.futureofmemory.services.query_service import run_rag
 from game.futureofmemory.services.firebase_service import (
     create_session, get_session_by_pin, add_scenario, update_scenarios, 
-    update_year, update_faction, join_session, get_player_count, update_game_state, allocate_pin,
+    update_year, join_session, get_player_count, update_game_state, allocate_pin,
     vote_for_faction, finalize_faction_vote, get_faction_votes
 )
         
@@ -173,38 +173,6 @@ class FactionResultView(APIView):
                 {"error": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-
-
-class FactionView(APIView):
-    """
-    Legacy endpoint - kept for backward compatibility.
-    POST /api/session/{pin}/faction/
-    Directly sets the faction (bypasses voting).
-    """
-    def post(self, request, pin):
-        try:
-            data = request.data
-            faction = data.get("faction")
-
-            if faction not in ["rightists", "resourceists", "responsibilists"]:
-                return Response(
-                    {"error": "Invalid faction"},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-
-            session = get_session_by_pin(pin)
-            if not session:
-                return Response({"error": "Session not found"}, status=status.HTTP_404_NOT_FOUND)
-
-            update_faction(pin, faction)
-
-            return Response({"faction": faction}, status=status.HTTP_200_OK)
-
-        except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
-
 
 class ScenarioView(APIView):
     def post(self, request, pin):
