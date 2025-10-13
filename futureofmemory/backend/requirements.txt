@@ -1,6 +1,7 @@
 # Django
 django
 djangorestframework
+django-cors-headers
 
 # LangChain + RAG
 langchain
