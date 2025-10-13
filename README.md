@@ -1,11 +1,42 @@
-# DECO3801-DECO7381
-### Formatting and linting
-The application uses Prettier to format, and ESlint for linting. The most useful commands include:
+# DECO3801-DECO7381 
+1-page README which must outline to markers all external data files, libraries
+needed with setup instructions to run your project.
 
-```npm run lint``` → Runs ESLint (with Prettier plugin)
+### Frontend setup
+Starting the server:
+```bash
+cd futureofmemory/frontend
+```
+Installing requisite libraries:
+```bash
+npm install
+```
+Running it:
+```bash
+npm run dev
+```
+### Backend setup
 
-```npm run lint:fix``` → Fixes ESLint issues
+Installing all prerequisite material for the backend:
+```bash
+cd futureofmemory/backend
+```
+```bash
+pip install -m requirements.txt
+```
 
-```npm run format``` → Formats only
+Starting the server:
+```bash
+cd futureofmemory/backend
+```
+```bash
+python manage.py runserver
+```
+Entering commands:
 
-```npm run check``` → Runs both ESLint and Prettier checks (used for CI)
+```bash
+cd futureofmemory/backend
+```
+```bash
+source venv/bin/activate
+```
