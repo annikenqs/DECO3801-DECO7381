@@ -95,14 +95,11 @@ if (hotspot) {
   });
 })();
 
-import {createSession} from '../api/futureMemoryApi.js';
+import {createSession, joinSession} from '../api/futureMemoryApi.js';
 
 window.addEventListener('DOMContentLoaded', () => {
   const newGameBtn = document.querySelector('a.btn[href="src/html/lobby.html"]');
-
-  if (!newGameBtn) {
-    return;
-  }
+  if (!newGameBtn) return;
 
   console.log('✅ Script loaded, button found');
 
@@ -114,6 +111,8 @@ window.addEventListener('DOMContentLoaded', () => {
 
       const pin = session?.pin;
       if (!pin) throw new Error("No 'pin' returned from backend");
+
+      await joinSession({pin});
 
       const targetUrl = `src/html/lobby.html?pin=${encodeURIComponent(pin)}`;
       window.location.href = targetUrl;
