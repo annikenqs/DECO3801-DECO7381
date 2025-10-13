@@ -14,7 +14,7 @@ async function pollVotingStatus(pin) {
 
     if (status.allVoted && status.faction) {
       showMessage(`All players have voted! Final faction: ${status.faction}`);
-      goToNextPage(status.faction);
+      goToNextPage(pin);
     }
   } catch (err) {
     console.warn('[Polling] Failed to check faction voting:', err.message);
@@ -40,9 +40,13 @@ function showMessage(msg) {
   }
   msgEl.textContent = msg;
 }
-function goToNextPage() {
-  const nextUrl = 'GeneralScenario.html';
-  setTimeout(() => (location.href = nextUrl), 4000);
+
+function goToNextPage(pin) {
+  const url = new URL('GeneralScenario.html', window.location.href);
+  url.searchParams.set('pin', pin);
+  setTimeout(() => {
+    location.href = url.toString();
+  }, 4000);
 }
 
 // --- main ---
@@ -72,7 +76,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (data.allVoted) {
           showMessage(`All players have voted! Final faction: ${data.faction}`);
-          goToNextPage(data.faction);
+          goToNextPage(pin);
         }
       } catch (err) {
         console.error('Vote failed:', err);
