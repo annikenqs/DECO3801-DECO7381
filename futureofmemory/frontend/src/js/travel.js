@@ -1,6 +1,18 @@
 //The teleportation effect learn from the tutorial and ChatGPT.
 // Jump to the target (2075 starting page)
-const TARGET_URL = 'index-2075.html';
+const params = new URLSearchParams(window.location.search);
+const pin = params.get('pin');
+
+let TARGET_URL = 'index-2075.html';
+if (pin) {
+  TARGET_URL += `?pin=${encodeURIComponent(pin)}`;
+  console.log('[Travel] Pin detected:', pin);
+}
+
+const skipEl = document.getElementById('skip');
+if (skipEl) {
+  skipEl.href = TARGET_URL;
+}
 
 // Countdown seconds
 const TOTAL_SECONDS = 3;
@@ -12,7 +24,6 @@ const FINAL_BG = './Earth.jpg';
 const countEl = document.getElementById('count');
 const lineEl = document.getElementById('line');
 const bgEl = document.getElementById('bg');
-const skipEl = document.getElementById('skip');
 
 // —— text ——
 const lines = [

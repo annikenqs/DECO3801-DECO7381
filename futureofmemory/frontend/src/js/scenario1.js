@@ -1,89 +1,87 @@
-// - Send faction to backend before jumping to After_*
-// - Maintain a persistent sessionId in localStorage
+// scenario1.js
+import {checkFactionVoting, voteForFaction} from '../api/futureMemoryApi.js';
 
-const STORAGE_KEY = 'worldMode';
-const SESSION_KEY = 'fmSessionId';
-const API_BASE = '/api'; //  If use a Vite proxy, that's fine; If directly cross domains, can change it to the complete backend address
-
-function ensureSession() {
-  let sid = localStorage.getItem(SESSION_KEY);
-  if (!sid) {
-    sid = (self.crypto && crypto.randomUUID && crypto.randomUUID()) || String(Date.now());
-    localStorage.setItem(SESSION_KEY, sid);
-  }
-  return sid;
+function getPinFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get('pin');
 }
 
-async function setFaction(sessionId, faction) {
+// --- poll status ---
+async function pollVotingStatus(pin) {
   try {
-    const res = await fetch(`${API_BASE}/faction`, {
-      method: 'POST',
-      headers: {Accept: 'application/json', 'Content-Type': 'application/json'},
-      credentials: 'include',
-      body: JSON.stringify({sessionId, faction}),
-    });
+    const status = await checkFactionVoting({pin});
+    console.log('[Polling] Faction vote status:', status);
 
-    if (!res.ok) {
-      let msg = `HTTP ${res.status}`;
-      try {
-        const data = await res.json();
-        msg = (data && (data.error || data.message)) || msg;
-      } catch (err) {
-        // ignore saved state parse error
-        void err;
-      }
-
-      throw new Error(msg);
+    if (status.allVoted && status.faction) {
+      showMessage(`All players have voted! Final faction: ${status.faction}`);
+      goToNextPage(status.faction);
     }
-  } catch (e) {
-    // Non-blocking jump: Only warns in the console
-    console.warn('setFaction failed:', e && e.message ? e.message : e);
+  } catch (err) {
+    console.warn('[Polling] Failed to check faction voting:', err.message);
   }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-  const choices = Array.from(document.querySelectorAll('.choice'));
+// --- UI helpers ---
+function hideChoices() {
+  document.querySelectorAll('.choice').forEach((btn) => (btn.style.display = 'none'));
+}
+function showChoices() {
+  document.querySelectorAll('.choice').forEach((btn) => (btn.style.display = 'grid'));
+}
+function showMessage(msg) {
+  let msgEl = document.getElementById('vote-message');
+  if (!msgEl) {
+    msgEl = document.createElement('p');
+    msgEl.id = 'vote-message';
+    msgEl.style.marginTop = '1.5rem';
+    msgEl.style.fontSize = '1.2rem';
+    msgEl.style.textAlign = 'center';
+    document.querySelector('.wrap').appendChild(msgEl);
+  }
+  msgEl.textContent = msg;
+}
+function goToNextPage() {
+  const nextUrl = 'GeneralScenario.html';
+  setTimeout(() => (location.href = nextUrl), 4000);
+}
 
-  // mapping next page
-  const NEXT_BY_MODE = {
-    rightists: 'GeneralScenario.html',
-    resourceists: 'GeneralScenario.html',
-    responsibilists: 'GeneralScenario.html',
-  };
+// --- main ---
+document.addEventListener('DOMContentLoaded', () => {
+  const choices = document.querySelectorAll('.choice');
+  const pin = getPinFromUrl();
+
+  if (!pin) {
+    showMessage('Error: no PIN found in URL.');
+    return;
+  }
 
   choices.forEach((btn) => {
     btn.addEventListener('click', async () => {
-      // Selected state
+      const faction = btn.dataset.mode;
       choices.forEach((b) => b.classList.remove('selected'));
       btn.classList.add('selected');
 
-      // save changes (local)
-      const mode = btn.dataset.mode;
-      localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({mode, decidedAt: new Date().toISOString()})
-      );
+      hideChoices();
+      showMessage('Submitting your vote...');
 
-      // sync to backend (non-blocking)
-      const sessionId = ensureSession();
-      await setFaction(sessionId, mode);
+      try {
+        const data = await voteForFaction({pin, faction});
+        console.log('Vote successful:', data);
 
-      // jump
-      const nextUrl = NEXT_BY_MODE[mode];
-      if (nextUrl) {
-        setTimeout(() => {
-          location.href = nextUrl;
-        }, 200);
+        showMessage('Waiting for other people to vote...');
+
+        if (data.allVoted) {
+          showMessage(`All players have voted! Final faction: ${data.faction}`);
+          goToNextPage(data.faction);
+        }
+      } catch (err) {
+        console.error('Vote failed:', err);
+        showMessage('An error occurred. Please try again.');
+        showChoices();
       }
     });
   });
 
-  // Optional: restore previously selected button
-  // try {
-  //   const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
-  //   if (saved?.mode) {
-  //     const target = document.querySelector(`.choice[data-mode="${saved.mode}"]`);
-  //     target?.classList.add('selected');
-  //   }
-  // } catch {}
+  // Poll every 5 seconds
+  setInterval(() => pollVotingStatus(pin), 5000);
 });

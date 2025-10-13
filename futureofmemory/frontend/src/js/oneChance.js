@@ -1,3 +1,10 @@
+const params = new URLSearchParams(window.location.search);
+const pin = params.get('pin');
+if (pin) {
+  const nextBtn = document.getElementById('next-btn');
+  nextBtn.href = `./travel.html?pin=${encodeURIComponent(pin)}`;
+}
+
 const text = 'But you have one chance to go back...';
 let index = 0;
 const speed = 50; // typing speed
