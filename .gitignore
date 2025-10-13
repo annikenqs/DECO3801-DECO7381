@@ -43,6 +43,9 @@ venv/
 *.sqlite3
 *.bin
 *.pickle
+chroma_langchain_db/
+**/chroma_langchain_db/
+.huggingface/
 
 # Firebase service account key
 serviceAccountKey.json

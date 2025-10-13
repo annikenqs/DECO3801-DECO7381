@@ -69,6 +69,13 @@ body {
     color 0.5s ease,
     text-shadow 0.5s ease;
   position: relative;
+  --protrude: 3.2ch;
+  display: inline-block;
+}
+
+.title .l2 {
+  text-indent: calc(-1 * var(--protrude));
+  padding-left: var(--protrude);
 }
 
 /* Lighting status style */
