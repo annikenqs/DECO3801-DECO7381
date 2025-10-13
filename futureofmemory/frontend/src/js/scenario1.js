@@ -1,44 +1,9 @@
 // scenario1.js
-import {checkFactionVoting} from '../api/futureMemoryApi.js';
-
-const STORAGE_KEY = 'worldMode';
-const API_BASE = '/api';
+import {checkFactionVoting, voteForFaction} from '../api/futureMemoryApi.js';
 
 function getPinFromUrl() {
   const params = new URLSearchParams(window.location.search);
   return params.get('pin');
-}
-
-// --- send vote to backend ---
-async function voteForFaction(pin, faction) {
-  try {
-    const res = await fetch(`${API_BASE}/session/${pin}/faction/vote/`, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({faction}),
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      showMessage(`Error: ${data.error || 'Unable to submit vote'}`);
-      showChoices();
-      return;
-    }
-
-    console.log('Vote successful:', data);
-    hideChoices();
-    showMessage('Waiting for other people to vote...');
-
-    if (data.allVoted) {
-      showMessage(`All players have voted! Final faction: ${data.faction}`);
-      goToNextPage(data.faction);
-    }
-  } catch (err) {
-    console.error('Vote failed:', err);
-    showMessage('An error occurred. Please try again.');
-    showChoices();
-  }
 }
 
 // --- poll status ---
@@ -96,12 +61,24 @@ document.addEventListener('DOMContentLoaded', () => {
       choices.forEach((b) => b.classList.remove('selected'));
       btn.classList.add('selected');
 
-      localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({faction, decidedAt: new Date().toISOString()})
-      );
+      hideChoices();
+      showMessage('Submitting your vote...');
 
-      await voteForFaction(pin, faction);
+      try {
+        const data = await voteForFaction({pin, faction});
+        console.log('Vote successful:', data);
+
+        showMessage('Waiting for other people to vote...');
+
+        if (data.allVoted) {
+          showMessage(`All players have voted! Final faction: ${data.faction}`);
+          goToNextPage(data.faction);
+        }
+      } catch (err) {
+        console.error('Vote failed:', err);
+        showMessage('An error occurred. Please try again.');
+        showChoices();
+      }
     });
   });
 

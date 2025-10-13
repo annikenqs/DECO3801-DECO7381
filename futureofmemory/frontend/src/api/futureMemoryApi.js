@@ -84,6 +84,16 @@ export function startGame({pin}) {
   return updateGameStatus({pin, status: 'in-progress'});
 }
 
+export function voteForFaction({pin, faction}) {
+  if (!pin) throw new Error('voteForFaction: pin is required');
+  if (!faction) throw new Error('voteForFaction: faction is required');
+
+  return request(`/session/${pin}/faction/vote/`, {
+    method: 'POST',
+    body: {faction},
+  });
+}
+
 export function checkFactionVoting({pin}) {
   if (!pin) throw new Error('checkFactionVoting: pin is required');
   return request(`/session/${pin}/faction/result/`, {method: 'GET'});
