@@ -1,12 +1,8 @@
-const newGameBtn = document.getElementById('new-game-btn');
+import {joinSession} from '/src/api/futureMemoryApi.js';
+
 const joinBtn = document.getElementById('join-btn');
 
-newGameBtn.addEventListener('click', () => {
-  const pin = Math.floor(100000 + Math.random() * 900000);
-  window.location.href = `lobby.html?pin=${pin}`;
-});
-
-joinBtn.addEventListener('click', () => {
+joinBtn.addEventListener('click', async () => {
   const pin = document.getElementById('game-pin').value.trim();
 
   if (!pin) {
@@ -14,5 +10,16 @@ joinBtn.addEventListener('click', () => {
     return;
   }
 
-  window.location.href = `lobby.html?pin=${pin}`;
+  try {
+    const response = await joinSession({pin});
+
+    if (response?.success || response?.status === 'ok') {
+      window.location.href = `lobby.html?pin=${pin}`;
+    } else {
+      alert('Invalid or expired game PIN. Please check and try again.');
+    }
+  } catch (error) {
+    console.error('Error joining session:', error);
+    alert('Could not join game, the PIN might be invalid or the server is unavailable.');
+  }
 });

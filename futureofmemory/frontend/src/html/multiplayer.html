@@ -1,31 +1,30 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>Multiplayer - Memory Futures</title>
-  <link rel="stylesheet" href="../css/style.css">
-  <link rel="stylesheet" href="../css/multiplayer.css">
-</head>
-<body>
-  <div class="scene">
-    <canvas id="snowCanvas"></canvas>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Multiplayer - Memory Futures</title>
+    <link rel="stylesheet" href="../css/style.css" />
+    <link rel="stylesheet" href="../css/multiplayer.css" />
+  </head>
+  <body>
+    <div class="scene">
+      <canvas id="snowCanvas"></canvas>
 
-    <div class="menu">
-      <h1 class="title">FUTURE OF MEMORY</h1>
+      <div class="menu">
+        <h1 class="title">FUTURE OF MEMORY</h1>
 
-      <div class="multiplayer-container">
-        <!-- Start new game -->
+        <div class="multiplayer-container">
+          <!-- Start new game -->
 
-        <!-- Join existing game -->
-        <div class="join-box">
-          <input type="text" id="game-pin" placeholder="Enter Game PIN">
-          <button class="btn" id="join-btn">JOIN GAME</button>
+          <!-- Join existing game -->
+          <div class="join-box">
+            <input type="text" id="game-pin" placeholder="Enter Game PIN" />
+            <button class="btn" id="join-btn">JOIN GAME</button>
+          </div>
         </div>
       </div>
     </div>
-  </div>
 
-  <script src="../js/main.js"></script>
-  <script src="../js/multiplayer.js"></script>
-</body>
+    <script type="module" src="../js/multiplayer.js"></script>
+  </body>
 </html>

@@ -57,43 +57,63 @@ export async function request(
   return data;
 }
 
-// Get "The current plot scene to be displayed"
-export function getScenario({sessionId}) {
-  if (!sessionId) throw new Error('getScenario: sessionId is required');
-  return request(`/session/${sessionId}/scenario/`, {
+export function createSession({faction = 'Unknown', year = 2075, pin} = {}) {
+  return request('/session/', {
     method: 'POST',
-    body: {},
+    body: {faction, year, ...(pin ? {pin} : {})},
   });
 }
 
-// Send the player's choice and get the next scene
-export function sendChoice({sessionId, scenarioId, choiceId, idempotencyKey}) {
-  if (!sessionId) throw new Error('sendChoice: sessionId is required');
-  if (!scenarioId) throw new Error('sendChoice: scenarioId is required');
-  if (!choiceId) throw new Error('sendChoice: choiceId is required');
-  return request(`/session/${sessionId}/choice/`, {
+export function joinSession({pin}) {
+  if (!pin) throw new Error('joinSession: pin is required');
+  return request('/session/join/', {method: 'POST', body: {pin}});
+}
+
+export function getPlayerCount({pin}) {
+  if (!pin) throw new Error('getPlayerCount: pin is required');
+  return request(`/session/${pin}/players/count/`, {method: 'GET'});
+}
+
+export function updateGameStatus({pin, status}) {
+  if (!pin) throw new Error('updateGameStatus: pin is required');
+  if (!status) throw new Error('updateGameStatus: status is required');
+  return request(`/session/${pin}/state/`, {method: 'PATCH', body: {status}});
+}
+
+export function startGame({pin}) {
+  return updateGameStatus({pin, status: 'in-progress'});
+}
+
+export function setFaction({pin, faction}) {
+  if (!pin) throw new Error('setFaction: pin is required');
+  if (!['rightists', 'resourceists', 'responsibilists'].includes(faction)) {
+    throw new Error('setFaction: faction must be rightists | resourceists | responsibilists');
+  }
+  return request(`/session/${pin}/faction/`, {method: 'POST', body: {faction}});
+}
+
+export function getGameState({pin}) {
+  if (!pin) throw new Error('getGameState: pin is required');
+  return request(`/session/${pin}/state/`, {method: 'GET'});
+}
+
+// Scenario (server requires status === 'in-progress')
+export function getScenario({pin, timeoutMs = 60000}) {
+  if (!pin) throw new Error('getScenario: pin is required');
+  return request(`/session/${pin}/scenario/`, {
+    method: 'POST',
+    body: {},
+    timeoutMs,
+  });
+}
+
+export function sendChoice({pin, scenarioId, choiceId, idempotencyKey}) {
+  if (!pin) throw new Error('sendChoice: pin is required');
+  if (scenarioId == null) throw new Error('sendChoice: scenarioId is required');
+  if (choiceId == null) throw new Error('sendChoice: choiceId is required');
+  return request(`/session/${pin}/choice/`, {
     method: 'PATCH',
     body: {scenarioId, choiceId},
     headers: idempotencyKey ? {'Idempotency-Key': idempotencyKey} : undefined,
-  });
-}
-
-// Record the faction selected in scenario1
-export function sendFaction({sessionId, faction}) {
-  if (!sessionId) throw new Error('sendFaction: sessionId is required');
-  if (!['rightists', 'resourceists', 'responsibilists'].includes(faction)) {
-    throw new Error('sendFaction: faction must be rightists | resourceists | responsibilists');
-  }
-  return request(`/session/${sessionId}/faction`, {
-    method: 'POST',
-    body: {faction},
-  });
-}
-
-// Create a new game session
-export async function createSession() {
-  return request('/session/', {
-    method: 'POST',
-    body: {},
   });
 }

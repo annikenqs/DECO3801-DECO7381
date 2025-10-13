@@ -5,7 +5,6 @@ const hotspot = document.getElementById('lighthouseHotspot');
 const goBright = () => scene && scene.classList.add('is-bright');
 const goDim = () => scene && scene.classList.remove('is-bright');
 
-// hotspot
 if (hotspot) {
   hotspot.addEventListener('mouseenter', goBright);
   hotspot.addEventListener('mouseleave', goDim);
@@ -14,30 +13,28 @@ if (hotspot) {
 }
 
 // ========== Snow ==========
-//According https://b23.tv/fagmbiZ
 (function initSnow() {
   const canvas = document.getElementById('snowCanvas');
   if (!canvas) return;
   const ctx = canvas.getContext('2d', {alpha: true});
 
-  // Configuration
   const FLAKE_COUNT = 140;
   const SIZE_MIN = 1,
     SIZE_MAX = 3;
   const SPEED_MIN = 0.3,
     SPEED_MAX = 0.7;
-  const DRIFT = 0.35; // Left and right drift amplitude
-  const SWAY = 0.45; // Sinusoidal swing amplitude
-
+  const DRIFT = 0.35,
+    SWAY = 0.45;
   let flakes = [];
 
-  // Adapt to high DPI to ensure pixel count
   function fitCanvas() {
     const dpr = Math.max(1, Math.floor(window.devicePixelRatio || 1));
-    const cssW = (canvas.clientWidth = window.innerWidth);
-    const cssH = (canvas.clientHeight = window.innerHeight);
+    const cssW = window.innerWidth;
+    const cssH = window.innerHeight;
     canvas.width = cssW * dpr;
     canvas.height = cssH * dpr;
+    canvas.style.width = `${cssW}px`;
+    canvas.style.height = `${cssH}px`;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.imageSmoothingEnabled = false;
   }
@@ -50,7 +47,7 @@ if (hotspot) {
       flakes.push({
         x: Math.random() * canvas.clientWidth,
         y: Math.random() * canvas.clientHeight,
-        size: Math.floor(rand(SIZE_MIN, SIZE_MAX + 1)), // 1~3 size
+        size: Math.floor(rand(SIZE_MIN, SIZE_MAX + 1)),
         vy: rand(SPEED_MIN, SPEED_MAX),
         drift: rand(-DRIFT, DRIFT),
         phase: Math.random() * Math.PI * 2,
@@ -64,17 +61,14 @@ if (hotspot) {
     const t = performance.now() / 1000;
 
     for (const f of flakes) {
-      // Sinusoidal swing + slight drift
       const sway = Math.sin(t + f.phase) * SWAY;
       const px = Math.floor(f.x + sway);
       const py = Math.floor(f.y);
       ctx.fillRect(px, py, f.size, f.size);
 
-      // Update location
       f.y += f.vy;
       f.x += f.drift * 0.2;
 
-      // Out-of-bounds loop
       if (f.y > canvas.clientHeight + 2) {
         f.y = -4;
         f.x = Math.random() * canvas.clientWidth;
@@ -89,17 +83,41 @@ if (hotspot) {
     requestAnimationFrame(loop);
   }
 
-  // Initialize and run
   fitCanvas();
   spawnFlakes();
   loop();
 
-  // When adjusting the size, reset the pixel ratio and snowflakes
   let resizeTimer = null;
   window.addEventListener('resize', () => {
     fitCanvas();
-    // Slight anti-shake to prevent frequent recalculation
     clearTimeout(resizeTimer);
     resizeTimer = setTimeout(spawnFlakes, 120);
   });
 })();
+
+import {createSession, joinSession} from '../api/futureMemoryApi.js';
+
+window.addEventListener('DOMContentLoaded', () => {
+  const newGameBtn = document.querySelector('a.btn[href="src/html/lobby.html"]');
+  if (!newGameBtn) return;
+
+  console.log('✅ Script loaded, button found');
+
+  newGameBtn.addEventListener('click', async (e) => {
+    e.preventDefault();
+
+    try {
+      const session = await createSession({faction: 'Unknown', year: 2075});
+
+      const pin = session?.pin;
+      if (!pin) throw new Error("No 'pin' returned from backend");
+
+      await joinSession({pin});
+
+      const targetUrl = `src/html/lobby.html?pin=${encodeURIComponent(pin)}`;
+      window.location.href = targetUrl;
+    } catch (err) {
+      alert(`Failed to start new game: ${err.message}`);
+    }
+  });
+});
