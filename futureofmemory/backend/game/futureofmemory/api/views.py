@@ -9,7 +9,7 @@ from game.futureofmemory.services.firebase_service import (
     create_session, get_session_by_pin, add_scenario, update_scenarios, 
     update_year, join_session, get_player_count, update_game_state, allocate_pin,
     vote_for_faction, finalize_faction_vote, get_faction_votes,
-    increment_choice_vote, pick_winner_from_choices, add_first_scenario_if_absent, 
+    increment_choice_vote, pick_winner_from_choices, add_first_scenario_if_absent, add_next_scenario_if_absent 
 )
         
 class SessionView(APIView):
@@ -186,8 +186,13 @@ class ScenarioView(APIView):
             if not session.get("faction"):
                 return Response({"error": "Faction not finalized yet."}, status=status.HTTP_409_CONFLICT)
 
-            # If already exists, let the transactional helper return the existing one anyway
-            # Build a "candidate" scenario from RAG (or fallback)
+            scenarios = session.get("scenarios", [])
+            if scenarios:
+                # Prefer the first scenario that is NOT finalized; otherwise return the last one.
+                open_one = next((s for s in scenarios if s.get("chosen") is None), None)
+                return Response(open_one or scenarios[-1], status=status.HTTP_200_OK)
+
+            # Otherwise generate a candidate (may be thrown away if another request wins the race)
             try:
                 rag_result = run_rag(
                     question="Generate a scenario",
@@ -238,30 +243,26 @@ class NextScenarioView(APIView):
                 return Response({"error": "No previous scenario exists. Call /scenario/ first."},
                                 status=status.HTTP_409_CONFLICT)
 
-            prev = next((s for s in scenarios if s.get("id") == prev_id), scenarios[-1])
+            # Use prev_id if provided, otherwise last
+            prev = next((s for s in scenarios if int(s.get("id", 0)) == int(prev_id)), scenarios[-1])
             if prev.get("chosen") is None:
                 return Response({"error": "Previous scenario not finalized (no winner)."},
                                 status=status.HTTP_409_CONFLICT)
 
-            # Idempotency: if a newer scenario already exists, return it
-            expected_new_id = max(s.get("id", 0) for s in scenarios) + 1
-            existing = next((s for s in scenarios if s.get("id") == expected_new_id), None)
-            if existing:
-                return Response(existing, status=status.HTTP_200_OK)
+            expected_new_id = max(int(s.get("id", 0)) for s in scenarios) + 1
 
-            # Build inputs for RAG
             chosen_text = next((c.get("text") for c in prev.get("choices", [])
                                 if int(c.get("id")) == int(prev["chosen"])), None)
+            new_year = int(session.get("year", 2075)) + 1
 
-            new_year = int(session["year"]) + 1
-
+            # Generate candidate OUTSIDE the transaction (may be called twice; write is protected)
             try:
                 rag_result = run_rag(
                     question="Generate next scenario",
                     year=new_year,
                     scenario=prev.get("text"),
                     chosen_choice=chosen_text,
-                    faction=session.get("faction")
+                    faction=session.get("faction"),
                 )
             except Exception as e:
                 print(f"[NextScenarioView] RAG ERROR: {type(e).__name__}: {e}")
@@ -271,49 +272,37 @@ class NextScenarioView(APIView):
             if isinstance(rag_result, dict):
                 scenario_data = rag_result.get("scenario") or rag_result
 
-            scenario_text = (
-                scenario_data.get("scenario_text")
-                or scenario_data.get("text")
-                or "No scenario generated (fallback)"
-            )
-            raw_choices = scenario_data.get("choices") or []
-            if not isinstance(raw_choices, list) or not raw_choices:
-                raw_choices = [
-                    {"id": 1, "text": "Fallback choice A"},
-                    {"id": 2, "text": "Fallback choice B"},
-                    {"id": 3, "text": "Fallback choice C"},
-                ]
-
-            letter_map = {1: "A", 2: "B", 3: "C"}
-            choices = []
-            for idx, ch in enumerate(raw_choices[:3], start=1):
-                cid = ch.get("id", idx)
-                if isinstance(cid, str) and cid.upper() in ("A", "B", "C"):
-                    cid = {"A": 1, "B": 2, "C": 3}[cid.upper()]
-                ctext = ch.get("text") or ch.get("label") or f"Option {letter_map.get(int(cid), 'A')}"
-                choices.append({
-                    "id": int(cid),
-                    "text": ctext,
-                    "label": f"{letter_map.get(int(cid), 'A')}: {ctext}",
-                    "votes": int(ch.get("votes", 0)),
-                })
-
-            new_scenario = {
-                "id": expected_new_id,
-                "text": scenario_text,
-                "choices": choices,
-                "chosen": None,
-                "year": new_year,
+            candidate = {
+                "text": (
+                    scenario_data.get("scenario_text")
+                    or scenario_data.get("text")
+                    or "No scenario generated (fallback)"
+                ),
+                "choices": scenario_data.get("choices") or [],
             }
-            add_scenario(pin, new_scenario)
-            update_year(pin, new_year)
 
-            return Response(new_scenario, status=status.HTTP_200_OK)
+            # Atomic: append or return existing
+            persisted = add_next_scenario_if_absent(pin, expected_new_id, candidate, new_year)
+            return Response(persisted, status=status.HTTP_200_OK)
 
         except Exception as e:
             print(f"[NextScenarioView] UNEXPECTED ERROR: {type(e).__name__}: {e}")
             return Response({"error": "Next scenario generation failed", "details": str(e)},
                             status=status.HTTP_502_BAD_GATEWAY)
+
+class CurrentScenarioView(APIView):
+    def get(self, request, pin):
+        session = get_session_by_pin(pin)
+        if not session:
+            return Response({"error": "Session not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        scenarios = session.get("scenarios", [])
+        if not scenarios:
+            # IMPORTANT: 404 when nothing exists yet
+            return Response({"detail": "No scenario yet"}, status=status.HTTP_404_NOT_FOUND)
+
+        # If you want “latest” instead of first, use scenarios[-1]
+        return Response(scenarios[0], status=status.HTTP_200_OK)
 
 
 # class ChoiceView(APIView):

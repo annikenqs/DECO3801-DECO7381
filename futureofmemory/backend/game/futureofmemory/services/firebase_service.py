@@ -395,3 +395,60 @@ def add_first_scenario_if_absent(pin: str, scenario: dict) -> dict:
     """Public wrapper that runs the transactional creator."""
     tx = db.transaction()
     return add_first_scenario_if_absent_txn(tx, pin, scenario)
+
+@firestore.transactional
+def add_next_scenario_if_absent_txn(
+    transaction: firestore.Transaction,
+    pin: str,
+    expected_new_id: int,
+    candidate: dict,
+    new_year: int,
+) -> dict:
+    """
+    Atomically append the next scenario with id=expected_new_id if missing.
+    - Returns the existing scenario if it already exists (idempotent).
+    - Validates that previous scenario is finalized (has "chosen").
+    - Updates session.year together with the append.
+    """
+    doc_ref = ref.document(pin)
+    snap = doc_ref.get(transaction=transaction)
+    if not snap.exists:
+        raise ValueError("Invalid PIN.")
+
+    data = snap.to_dict() or {}
+    scenarios = data.get("scenarios", [])
+
+    # If it already exists, return it (idempotent)
+    existing = next((s for s in scenarios if int(s.get("id", 0)) == int(expected_new_id)), None)
+    if existing:
+        return existing
+
+    # Must have a finalized previous scenario
+    prev_id = expected_new_id - 1
+    prev = next((s for s in scenarios if int(s.get("id", 0)) == prev_id), None)
+    if not prev or prev.get("chosen") is None:
+        raise ValueError("Previous scenario not finalized.")
+
+    # Normalize candidate
+    choices = _normalize_choices_for_storage(candidate.get("choices", []))
+    text = candidate.get("text") or candidate.get("scenario_text") or "No scenario generated (fallback)"
+
+    scenario_to_write = {
+        "id": int(expected_new_id),
+        "text": text,
+        "choices": choices,
+        "chosen": None,
+        "year": int(new_year),
+    }
+
+    # Append & bump year atomically
+    new_list = scenarios + [scenario_to_write]
+    transaction.update(doc_ref, {"scenarios": new_list, "year": int(new_year)})
+
+    return scenario_to_write
+
+
+def add_next_scenario_if_absent(pin: str, expected_new_id: int, candidate: dict, new_year: int) -> dict:
+    tx = db.transaction()
+    return add_next_scenario_if_absent_txn(tx, pin, expected_new_id, candidate, new_year)
+

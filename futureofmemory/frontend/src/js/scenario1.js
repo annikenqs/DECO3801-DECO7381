@@ -75,8 +75,7 @@ document.addEventListener('DOMContentLoaded', () => {
         showMessage('Waiting for other people to vote...');
 
         if (data.allVoted) {
-          showMessage(`All players have voted! Final faction: ${data.faction}`);
-          goToNextPage(pin);
+          showMessage('All players have voted! Finalizing…');
         }
       } catch (err) {
         console.error('Vote failed:', err);

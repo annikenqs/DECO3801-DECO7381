@@ -3,6 +3,7 @@ import {
   castScenarioVote,
   getVoteStatus,
   getNextScenario,
+  getCurrentScenario,
 } from '../api/futureMemoryApi.js';
 
 const START_YEAR = 2075;
@@ -124,19 +125,37 @@ async function loadStep(i) {
   setLoadingUI(stepIndex);
 
   try {
-    // Server requires status === 'in-progress' already; otherwise this may 403
-    const s = await getScenario({pin}); // your helper has a long timeout
-    if (!s) throw new Error('Empty scenario.');
+    // Try to read the persisted scenario (idempotent read)
+    const s = await getCurrentScenario({pin});
+    console.log('[loadStep] got current scenario', s);
+    if (!s || !s.id) throw Object.assign(new Error('Empty current scenario'), {status: 404});
     renderScenarioAndChoices(s);
-    // eslint-disable-next-line no-unused-vars
-  } catch (_err) {
-    // Fallback placeholder to keep presentation going
-    scenarioEl.textContent = `Backend unavailable; showing placeholder.`;
-    renderOptions([
-      {id: 'A', label: 'A'},
-      {id: 'B', label: 'B'},
-      {id: 'C', label: 'C'},
-    ]);
+  } catch (err) {
+    console.warn('[loadStep] current scenario GET failed', err);
+    // DRF request() sets e.status on errors. Treat 404 as “create”
+    if (err && err.status === 404) {
+      try {
+        console.log('[loadStep] creating first scenario via POST …');
+        const created = await getScenario({pin}); // POST /scenario/
+        console.log('[loadStep] created scenario', created);
+        renderScenarioAndChoices(created);
+      } catch (inner) {
+        console.error('[loadStep] POST /scenario failed', inner);
+        scenarioEl.textContent = 'Backend unavailable; showing placeholder.';
+        renderOptions([
+          {id: 'A', label: 'A'},
+          {id: 'B', label: 'B'},
+          {id: 'C', label: 'C'},
+        ]);
+      }
+    } else {
+      scenarioEl.textContent = 'Backend unavailable; showing placeholder.';
+      renderOptions([
+        {id: 'A', label: 'A'},
+        {id: 'B', label: 'B'},
+        {id: 'C', label: 'C'},
+      ]);
+    }
   }
 }
 

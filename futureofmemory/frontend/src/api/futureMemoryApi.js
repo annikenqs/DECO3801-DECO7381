@@ -105,7 +105,7 @@ export function getGameState({pin}) {
 }
 
 // Scenario (server requires status === 'in-progress')
-export function getScenario({pin, timeoutMs = 60000}) {
+export function getScenario({pin, timeoutMs = 120000}) {
   if (!pin) throw new Error('getScenario: pin is required');
   return request(`/session/${pin}/scenario/`, {
     method: 'POST',
@@ -114,13 +114,21 @@ export function getScenario({pin, timeoutMs = 60000}) {
   });
 }
 
-export function getNextScenario({pin, previousScenarioId, timeoutMs = 60000}) {
+export function getNextScenario({pin, previousScenarioId, timeoutMs = 120000}) {
   if (!pin) throw new Error('getNextScenario: pin is required');
   if (previousScenarioId == null)
     throw new Error('getNextScenario: previousScenarioId is required');
   return request(`/session/${pin}/next/`, {
     method: 'POST',
     body: {previousScenarioId: Number(previousScenarioId)},
+    timeoutMs,
+  });
+}
+
+export function getCurrentScenario({pin, timeoutMs = 12000}) {
+  if (!pin) throw new Error('getCurrentScenario: pin is required');
+  return request(`/session/${pin}/scenario/current/`, {
+    method: 'GET',
     timeoutMs,
   });
 }

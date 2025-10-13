@@ -1,6 +1,6 @@
 from django.urls import path
 from .views import (
-    NextScenarioView, SessionView, ScenarioView,
+    CurrentScenarioView, NextScenarioView, SessionView, ScenarioView,
     JoinSessionView, PlayerCountView, GameStateView,
     FactionVoteView, FactionResultView, VotingLogicView, PlayerVoteCheck,
 )
@@ -17,4 +17,6 @@ urlpatterns = [
     path("session/<str:pin>/vote/", VotingLogicView.as_view(), name="session_vote"),
     path("session/<str:pin>/votes/status/", PlayerVoteCheck.as_view(), name="vote_check"),
     path("session/<str:pin>/next/", NextScenarioView.as_view(), name="session_next"),
+    path("session/<str:pin>/scenario/current/", CurrentScenarioView.as_view(), name="session_scenario_current"),
+
 ]
