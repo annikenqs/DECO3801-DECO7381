@@ -11,7 +11,6 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
-import os
 from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -34,8 +33,6 @@ ALLOWED_HOSTS = [
     "testserver", 
     "127.0.0.1", 
     "localhost",
-    "0.0.0.0",
-    "*",  # 允许所有主机（仅用于开发/测试）
 ]
 
 
@@ -71,9 +68,6 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
 ]
 
-# 开发环境允许所有来源（仅用于测试）
-CORS_ALLOW_ALL_ORIGINS = True  # 警告：生产环境请设置为 False 并配置具体的 ORIGINS
-
 CORS_ALLOW_CREDENTIALS = True
 
 
@@ -82,9 +76,6 @@ ROOT_URLCONF = 'server.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [
-            BASE_DIR.parent / 'frontend' / 'src' / 'html',  # Frontend HTML files
-        ],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -144,15 +135,6 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = 'static/'
-STATIC_ROOT = BASE_DIR / 'staticfiles'
 
-# Additional locations of static files (optional for serving frontend build)
-STATICFILES_DIRS = [
-    # Uncomment this if you want Django to serve the frontend build files
-    # BASE_DIR.parent / 'frontend' / 'dist',
-]
-
-# Default primary key field type
-# https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
