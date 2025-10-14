@@ -101,8 +101,6 @@ window.addEventListener('DOMContentLoaded', () => {
   const newGameBtn = document.querySelector('a.btn[href="src/html/lobby.html"]');
   if (!newGameBtn) return;
 
-  console.log('✅ Script loaded, button found');
-
   newGameBtn.addEventListener('click', async (e) => {
     e.preventDefault();
 

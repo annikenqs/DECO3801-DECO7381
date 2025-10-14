@@ -47,7 +47,25 @@ class State(TypedDict):
 
 def retrieve(state: State):
     vs, _ = init_rag()
-    retrieved_docs = vs.similarity_search(state["question"])
+
+    year = state.get("year", 2075)
+    faction = state.get("faction", "Unknown")
+    prev_scenario = state.get("scenario", "")
+    chosen_choice = state.get("chosen_choice", "")
+
+    if prev_scenario and chosen_choice:
+        query = (
+            f"Neurotechnology ethics, memory manipulation, and societal impact in the future."
+            f"Focus on themes from the last event: {chosen_choice} and previous scenario {prev_scenario}. "
+            f"Consider information that could be relevant to faction {faction}."
+        )
+    else:
+        query = (
+            f"General context on neurotechnology, memory implants, memory manipulation, and ethics in the future"
+            f"Consider information that could be relevant to faction {faction}."
+        )
+
+    retrieved_docs = vs.similarity_search(query, k=6) 
     return {"context": retrieved_docs}
 
 def safe_parse_response(raw: str) -> dict:
@@ -121,9 +139,8 @@ graph_builder = StateGraph(State).add_sequence([retrieve, generate])
 graph_builder.add_edge(START, "retrieve")
 graph = graph_builder.compile()
 
-def run_rag(question: str, year: int = 2075, scenario=None, choices=None, chosen_choice=None, faction="Unknown"):
+def run_rag(year: int = 2075, scenario=None, choices=None, chosen_choice=None, faction="Unknown"):
     state = {
-        "question": question,
         "year": year,
         "scenario": scenario,
         "choices": choices,

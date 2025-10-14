@@ -3,15 +3,18 @@ from langchain.chat_models import init_chat_model
 from langchain.prompts import PromptTemplate
 from langchain_google_genai import ChatGoogleGenerativeAI
 
+
 def get_llm():
     api_key = os.getenv("GOOGLE_API_KEY")
     if not api_key:
-        raise ValueError("GOOGLE_API_KEY environment variable is not set. Please set it in your .env or shell.")
-    
+        raise ValueError(
+            "GOOGLE_API_KEY environment variable is not set. Please set it in your .env or shell.")
+
     return ChatGoogleGenerativeAI(
         model="gemini-2.5-flash",
         api_key=api_key,
     )
+
 
 SYSTEM_RULES = {
     "rules": [
@@ -22,7 +25,7 @@ SYSTEM_RULES = {
     ],
     "constraints": [
         "Scenarios must stay realistic for neurotechnology research.",
-        "Avoid academic or technical language. Keep it simple, clear, and engaging." 
+        "Avoid academic or technical language. Keep it simple, clear, and engaging."
     ],
     "factions": {
         "rightists": "Sees memory as a right: not for sale, need explicit consent, revocable at any time.",
@@ -35,6 +38,9 @@ BASE_PROMPT = """
 Follow these fixed system rules (do not change them):
 {system_rules}
 
+Here is some background information retrieved from research on neurotechnology or memory manipulation.
+Use it as inspiration or factual grounding where it fits naturally, but you should expand beyond it if needed for
+clarity, realism, or storytelling flow.
 Context:
 {context}
 """
@@ -98,5 +104,3 @@ next_scenario_and_choices_prompt = PromptTemplate.from_template(
     }}
     """
 )
-
-

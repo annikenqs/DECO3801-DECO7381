@@ -219,6 +219,8 @@ class ScenarioView(APIView):
                     or "No scenario generated (fallback)"
                 ),
                 "choices": scenario_data.get("choices") or [],
+                "year": session["year"],
+                "citations": scenario_data.get("citations", []),
             }
 
             # Atomic create-if-absent (or return existing)
@@ -289,6 +291,8 @@ class NextScenarioView(APIView):
                     or "No scenario generated (fallback)"
                 ),
                 "choices": scenario_data.get("choices") or [],
+                "year": session["year"],
+                "citations": scenario_data.get("citations", []),
             }
 
             # Atomic: append or return existing
