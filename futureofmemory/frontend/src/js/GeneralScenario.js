@@ -1,4 +1,10 @@
-import {getScenario, sendChoice} from '../api/futureMemoryApi.js';
+import {
+  getScenario,
+  castScenarioVote,
+  getVoteStatus,
+  getNextScenario,
+  getCurrentScenario,
+} from '../api/futureMemoryApi.js';
 
 const START_YEAR = 2075;
 const TOTAL_STEPS = 10;
@@ -10,12 +16,35 @@ const optionsUl = document.getElementById('options');
 let pin = null;
 let stepIndex = 0;
 let scenarioId = null;
-let isSubmitting = false;
 // Calculation year & progress display
 const yearOf = (i) => START_YEAR + i;
 const setProgress = (i) => {
   progressEl.textContent = `YEAR ${yearOf(i)}`;
 };
+
+async function submitVoteAndPoll({pin, scenarioId, choice, onTick, onDone}) {
+  try {
+    await castScenarioVote({pin, scenarioId, choice});
+  } catch (e) {
+    console.error('vote failed', e);
+    onTick?.({error: e.message || String(e)});
+    return;
+  }
+  const intervalMs = 1500;
+  const t = setInterval(async () => {
+    try {
+      const s = await getVoteStatus({pin, scenarioId});
+      onTick?.(s);
+      if (s.persisted) {
+        clearInterval(t);
+        onDone?.(s);
+      }
+    } catch (e) {
+      console.warn('status poll failed', e);
+      // keep polling
+    }
+  }, intervalMs);
+}
 
 // Render three lines of the "Text Button" option (used for placeholders / loading)
 function renderOptions(choices) {
@@ -54,9 +83,6 @@ function getPinFromUrl() {
 }
 
 const letters = ['A', 'B', 'C'];
-function disableChoices(disabled) {
-  Array.from(optionsUl.querySelectorAll('button.option')).forEach((b) => (b.disabled = !!disabled));
-}
 
 // Render the scenario/choices from backend
 function renderScenarioAndChoices(s) {
@@ -99,58 +125,76 @@ async function loadStep(i) {
   setLoadingUI(stepIndex);
 
   try {
-    // Server requires status === 'in-progress' already; otherwise this may 403
-    const s = await getScenario({pin}); // your helper has a long timeout
-    if (!s) throw new Error('Empty scenario.');
+    // Try to read the persisted scenario (idempotent read)
+    const s = await getCurrentScenario({pin});
+    console.log('[loadStep] got current scenario', s);
+    if (!s || !s.id) throw Object.assign(new Error('Empty current scenario'), {status: 404});
     renderScenarioAndChoices(s);
-    // eslint-disable-next-line no-unused-vars
-  } catch (_err) {
-    // Fallback placeholder to keep presentation going
-    scenarioEl.textContent = `Backend unavailable; showing placeholder.`;
-    renderOptions([
-      {id: 'A', label: 'A'},
-      {id: 'B', label: 'B'},
-      {id: 'C', label: 'C'},
-    ]);
-  }
-}
-
-async function advanceWithChoice(choiceId) {
-  if (!pin || !scenarioId || isSubmitting) return;
-  isSubmitting = true;
-  disableChoices(true);
-
-  try {
-    // Send the player's choice; backend generates the next scenario & updates year
-    const resp = await sendChoice({pin, scenarioId, choiceId});
-
-    // Some backends return the new current scenario directly; others wrap it
-    const next = resp?.nextScenario || resp;
-
-    if (next && (next.id || next.scenarioId || next.text)) {
-      stepIndex += 1;
-      renderScenarioAndChoices(next);
+  } catch (err) {
+    console.warn('[loadStep] current scenario GET failed', err);
+    // DRF request() sets e.status on errors. Treat 404 as “create”
+    if (err && err.status === 404) {
+      try {
+        console.log('[loadStep] creating first scenario via POST …');
+        const created = await getScenario({pin});
+        console.log('[loadStep] created scenario', created);
+        renderScenarioAndChoices(created);
+      } catch (inner) {
+        console.error('[loadStep] POST /scenario failed', inner);
+        scenarioEl.textContent = 'Backend unavailable; showing placeholder.';
+        renderOptions([
+          {id: 'A', label: 'A'},
+          {id: 'B', label: 'B'},
+          {id: 'C', label: 'C'},
+        ]);
+      }
     } else {
-      stepIndex += 1;
-      await loadStep(stepIndex);
+      scenarioEl.textContent = 'Backend unavailable; showing placeholder.';
+      renderOptions([
+        {id: 'A', label: 'A'},
+        {id: 'B', label: 'B'},
+        {id: 'C', label: 'C'},
+      ]);
     }
-    // eslint-disable-next-line no-unused-vars
-  } catch (_err) {
-    // Keep UI experience moving even on error
-    stepIndex += 1;
-    await loadStep(stepIndex);
-  } finally {
-    isSubmitting = false;
-    disableChoices(false);
   }
 }
 
 optionsUl.addEventListener('click', (ev) => {
   const btn = ev.target.closest('button.option');
   if (!btn) return;
+  if (scenarioId == null) return;
 
-  const cid = btn.dataset.choiceId;
-  advanceWithChoice(cid);
+  const choice = btn.dataset.choiceId;
+  if (choice == null) return;
+
+  // Disable while waiting
+  optionsUl.querySelectorAll('button.option').forEach((b) => (b.disabled = true));
+  scenarioEl.textContent = 'Waiting for others to vote…';
+
+  submitVoteAndPoll({
+    pin,
+    scenarioId,
+    choice,
+    onTick: (s) => {
+      if (!s || s.error) return;
+      scenarioEl.textContent = `Waiting… ${s.total_votes}/${s.number_of_players} votes in`;
+    },
+    onDone: async (final) => {
+      scenarioEl.textContent = `Winner: ${final.winnerText || final.winnerId}. Loading next…`;
+      try {
+        const next = await getNextScenario({pin, previousScenarioId: scenarioId});
+        // bump the step and render the newly stored scenario
+        stepIndex += 1;
+        renderScenarioAndChoices(next);
+      } catch (e) {
+        console.error('getNextScenario failed', e);
+        // fall back to retrying the same step or showing a message
+        scenarioEl.textContent = 'Failed to load next scenario. Retrying…';
+      } finally {
+        optionsUl.querySelectorAll('button.option').forEach((b) => (b.disabled = false));
+      }
+    },
+  });
 });
 
 (async function bootstrap() {

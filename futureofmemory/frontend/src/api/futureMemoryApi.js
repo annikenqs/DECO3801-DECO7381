@@ -105,7 +105,7 @@ export function getGameState({pin}) {
 }
 
 // Scenario (server requires status === 'in-progress')
-export function getScenario({pin, timeoutMs = 60000}) {
+export function getScenario({pin, timeoutMs = 120000}) {
   if (!pin) throw new Error('getScenario: pin is required');
   return request(`/session/${pin}/scenario/`, {
     method: 'POST',
@@ -114,13 +114,37 @@ export function getScenario({pin, timeoutMs = 60000}) {
   });
 }
 
-export function sendChoice({pin, scenarioId, choiceId, idempotencyKey}) {
-  if (!pin) throw new Error('sendChoice: pin is required');
-  if (scenarioId == null) throw new Error('sendChoice: scenarioId is required');
-  if (choiceId == null) throw new Error('sendChoice: choiceId is required');
-  return request(`/session/${pin}/choice/`, {
+export function getNextScenario({pin, previousScenarioId, timeoutMs = 120000}) {
+  if (!pin) throw new Error('getNextScenario: pin is required');
+  if (previousScenarioId == null)
+    throw new Error('getNextScenario: previousScenarioId is required');
+  return request(`/session/${pin}/scenario/next/`, {
+    method: 'POST',
+    body: {previousScenarioId: Number(previousScenarioId)},
+    timeoutMs,
+  });
+}
+
+export function getCurrentScenario({pin, timeoutMs = 12000}) {
+  if (!pin) throw new Error('getCurrentScenario: pin is required');
+  return request(`/session/${pin}/scenario/current/`, {
+    method: 'GET',
+    timeoutMs,
+  });
+}
+
+const letterToId = (x) => ({A: 1, B: 2, C: 3})[String(x).toUpperCase()] ?? Number(x);
+
+export function castScenarioVote({pin, scenarioId, choice}) {
+  return request(`/session/${pin}/vote/`, {
     method: 'PATCH',
-    body: {scenarioId, choiceId},
-    headers: idempotencyKey ? {'Idempotency-Key': idempotencyKey} : undefined,
+    body: {scenarioId: Number(scenarioId), choiceId: letterToId(choice)},
+  });
+}
+
+export function getVoteStatus({pin, scenarioId}) {
+  return request(`/session/${pin}/votes/status/`, {
+    method: 'GET',
+    query: {scenarioId: Number(scenarioId)},
   });
 }

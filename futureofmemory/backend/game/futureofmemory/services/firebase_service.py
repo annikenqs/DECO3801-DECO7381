@@ -327,3 +327,130 @@ def get_faction_votes(pin: str):
         "allVoted": all_voted,
         "faction": session.get("faction") if all_voted else None
     }
+
+def _normalize_choices_for_storage(raw_choices: list) -> list:
+    """Ensure numeric ids (1..3) and integer votes on each choice."""
+    norm = []
+    for idx, ch in enumerate((raw_choices or [])[:3], start=1):
+        cid = ch.get("id", idx)
+        if isinstance(cid, str) and cid.upper() in ("A", "B", "C"):
+            cid = {"A": 1, "B": 2, "C": 3}[cid.upper()]
+        try:
+            cid = int(cid)
+        except Exception:
+            cid = idx
+
+        ctext = ch.get("text") or ch.get("label") or f"Option {cid}"
+        norm.append({
+            "id": cid,
+            "text": ctext,
+            "votes": int(ch.get("votes", 0)),
+        })
+    # if empty, provide a fallback set
+    if not norm:
+        norm = [
+            {"id": 1, "text": "Fallback choice A", "votes": 0},
+            {"id": 2, "text": "Fallback choice B", "votes": 0},
+            {"id": 3, "text": "Fallback choice C", "votes": 0},
+        ]
+    return norm
+
+
+@firestore.transactional
+def add_first_scenario_if_absent_txn(transaction: firestore.Transaction, pin: str, scenario: dict) -> dict:
+    """
+    Atomically create the first scenario if none exists; otherwise return the existing first scenario.
+    """
+    doc_ref = ref.document(pin)
+    snap = doc_ref.get(transaction=transaction)
+    if not snap.exists:
+        raise ValueError("Invalid PIN.")
+
+    data = snap.to_dict() or {}
+    scenarios = data.get("scenarios", [])
+    if scenarios:
+        # Another request already created it
+        return scenarios[0]
+
+    year = int(data.get("year", 2075))
+
+    # Normalize choices and assemble the scenario we will write
+    normalized_choices = _normalize_choices_for_storage(scenario.get("choices", []))
+    scenario_to_write = {
+        "id": 1,
+        "text": scenario.get("text") or scenario.get("scenario_text") or "No scenario generated (fallback)",
+        "choices": normalized_choices,
+        "chosen": None,
+        "year": year,
+        "citations": scenario.get("citations", []),
+    }
+
+    # Append atomically
+    new_scenarios = scenarios + [scenario_to_write]
+    transaction.update(doc_ref, {"scenarios": new_scenarios})
+
+    return scenario_to_write
+
+
+def add_first_scenario_if_absent(pin: str, scenario: dict) -> dict:
+    """Public wrapper that runs the transactional creator."""
+    tx = db.transaction()
+    return add_first_scenario_if_absent_txn(tx, pin, scenario)
+
+@firestore.transactional
+def add_next_scenario_if_absent_txn(
+    transaction: firestore.Transaction,
+    pin: str,
+    expected_new_id: int,
+    candidate: dict,
+    new_year: int,
+) -> dict:
+    """
+    Atomically append the next scenario with id=expected_new_id if missing.
+    - Returns the existing scenario if it already exists (idempotent).
+    - Validates that previous scenario is finalized (has "chosen").
+    - Updates session.year together with the append.
+    """
+    doc_ref = ref.document(pin)
+    snap = doc_ref.get(transaction=transaction)
+    if not snap.exists:
+        raise ValueError("Invalid PIN.")
+
+    data = snap.to_dict() or {}
+    scenarios = data.get("scenarios", [])
+
+    # If it already exists, return it (idempotent)
+    existing = next((s for s in scenarios if int(s.get("id", 0)) == int(expected_new_id)), None)
+    if existing:
+        return existing
+
+    # Must have a finalized previous scenario
+    prev_id = expected_new_id - 1
+    prev = next((s for s in scenarios if int(s.get("id", 0)) == prev_id), None)
+    if not prev or prev.get("chosen") is None:
+        raise ValueError("Previous scenario not finalized.")
+
+    # Normalize candidate
+    choices = _normalize_choices_for_storage(candidate.get("choices", []))
+    text = candidate.get("text") or candidate.get("scenario_text") or "No scenario generated (fallback)"
+
+    scenario_to_write = {
+        "id": int(expected_new_id),
+        "text": text,
+        "choices": choices,
+        "chosen": None,
+        "year": int(new_year),
+        "citations": candidate.get("citations", []),
+    }
+
+    # Append & bump year atomically
+    new_list = scenarios + [scenario_to_write]
+    transaction.update(doc_ref, {"scenarios": new_list, "year": int(new_year)})
+
+    return scenario_to_write
+
+
+def add_next_scenario_if_absent(pin: str, expected_new_id: int, candidate: dict, new_year: int) -> dict:
+    tx = db.transaction()
+    return add_next_scenario_if_absent_txn(tx, pin, expected_new_id, candidate, new_year)
+
