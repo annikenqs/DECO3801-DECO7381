@@ -382,6 +382,7 @@ def add_first_scenario_if_absent_txn(transaction: firestore.Transaction, pin: st
         "choices": normalized_choices,
         "chosen": None,
         "year": year,
+        "citations": scenario.get("citations", []),
     }
 
     # Append atomically
@@ -439,6 +440,7 @@ def add_next_scenario_if_absent_txn(
         "choices": choices,
         "chosen": None,
         "year": int(new_year),
+        "citations": candidate.get("citations", []),
     }
 
     # Append & bump year atomically

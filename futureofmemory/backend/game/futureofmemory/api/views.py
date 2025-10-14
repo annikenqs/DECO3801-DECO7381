@@ -200,10 +200,9 @@ class ScenarioView(APIView):
             # Otherwise generate a candidate (may be thrown away if another request wins the race)
             try:
                 rag_result = run_rag(
-                    question="Generate a scenario",
-                    year=session["year"],
-                    faction=session["faction"]
-                )
+                year=session["year"],
+                faction=session["faction"]
+            )
             except Exception as e:
                 print(f"[ScenarioView] RAG ERROR: {type(e).__name__}: {e}")
                 rag_result = None
@@ -270,12 +269,11 @@ class NextScenarioView(APIView):
             # Generate candidate OUTSIDE the transaction (may be called twice; write is protected)
             try:
                 rag_result = run_rag(
-                    question="Generate next scenario",
                     year=new_year,
                     scenario=prev.get("text"),
                     chosen_choice=chosen_text,
                     faction=session.get("faction"),
-                )
+ )
             except Exception as e:
                 print(f"[NextScenarioView] RAG ERROR: {type(e).__name__}: {e}")
                 rag_result = None
@@ -291,7 +289,7 @@ class NextScenarioView(APIView):
                     or "No scenario generated (fallback)"
                 ),
                 "choices": scenario_data.get("choices") or [],
-                "year": session["year"],
+                "year": new_year,
                 "citations": scenario_data.get("citations", []),
             }
 

@@ -118,7 +118,7 @@ export function getNextScenario({pin, previousScenarioId, timeoutMs = 120000}) {
   if (!pin) throw new Error('getNextScenario: pin is required');
   if (previousScenarioId == null)
     throw new Error('getNextScenario: previousScenarioId is required');
-  return request(`/session/${pin}/next/`, {
+  return request(`/session/${pin}/scenario/next/`, {
     method: 'POST',
     body: {previousScenarioId: Number(previousScenarioId)},
     timeoutMs,
