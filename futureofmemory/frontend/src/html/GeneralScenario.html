@@ -21,6 +21,15 @@
         <li><button class="option" data-id="B">B: Fetching option from server...</button></li>
         <li><button class="option" data-id="C">C: Fetching option from server...</button></li>
       </ul>
+
+      <!-- Fullscreen loading overlay (top-level) -->
+    <div id="loadingOverlay" class="loading-overlay" hidden aria-live="polite" role="status">
+      <div class="loading-box" role="progressbar" aria-label="Generating scenario and choices">
+        <div class="spinner" aria-hidden="true"></div>
+        <p class="loading-text">Loading…</p>
+      </div>
+    </div>
+
     </main>
 
     <script type="module" src="../js/GeneralScenario.js"></script>

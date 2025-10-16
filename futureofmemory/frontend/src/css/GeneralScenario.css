@@ -1,3 +1,4 @@
+/* ===== Future Memory – GeneralScenario.css (drop-in replacement) ===== */
 @font-face {
   font-family: 'VT323';
   src: url('../assets/fonts/VT323.woff2') format('woff2');
@@ -6,6 +7,7 @@
   font-display: swap;
 }
 
+/* Theme tokens */
 :root {
   --bg: #02070c;
   --bg-deep: #091522;
@@ -15,13 +17,8 @@
   --glow2: rgba(120, 180, 255, 0.22);
 }
 
-* {
-  box-sizing: border-box;
-}
-html,
-body {
-  height: 100%;
-}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
 
 body {
   margin: 0;
@@ -51,7 +48,7 @@ body::after {
   pointer-events: none;
 }
 
-/* Progress:Year */
+/* Progress: YEAR */
 .year {
   position: fixed;
   top: 28px;
@@ -66,6 +63,7 @@ body::after {
   user-select: none;
 }
 
+/* Layout */
 .stage {
   min-height: 100vh;
   display: grid;
@@ -88,6 +86,7 @@ body::after {
   word-break: break-word;
 }
 
+/* Options */
 .options {
   list-style: none;
   padding: 0;
@@ -95,9 +94,7 @@ body::after {
   text-align: center;
   margin-top: 48px;
 }
-.options li {
-  margin: 10px 0;
-}
+.options li { margin: 10px 0; }
 
 .option {
   appearance: none;
@@ -117,9 +114,7 @@ body::after {
 .option::after {
   content: '';
   position: absolute;
-  left: 0;
-  right: 0;
-  bottom: -3px;
+  left: 0; right: 0; bottom: -3px;
   height: 2px;
   background: linear-gradient(90deg, rgba(180, 220, 255, 0.85), rgba(130, 190, 255, 0.85));
   transform: scaleX(0);
@@ -128,9 +123,7 @@ body::after {
   transition: transform 0.22s ease;
 }
 .option:hover::after,
-.option:focus-visible::after {
-  transform: scaleX(1);
-}
+.option:focus-visible::after { transform: scaleX(1); }
 .option:hover,
 .option:focus-visible {
   outline: none;
@@ -140,18 +133,79 @@ body::after {
   transform: translateY(0.5px);
 }
 
-/* small screen*/
+/* Disabled during vote wait */
+.option[disabled] {
+  cursor: not-allowed;
+  opacity: 0.55;
+  text-shadow: none;
+}
+.option[disabled]::after { display: none; }
+
+.loading-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(1200px 600px at 70% 10%, rgba(10, 25, 40, 0.75), rgba(2, 7, 12, 0.75)),
+    rgba(2, 7, 12, 0.55);
+  backdrop-filter: blur(3px);
+}
+.loading-overlay[hidden] { display: none !important; }
+
+.loading-box {
+  text-align: center;
+  color: var(--ink);
+  text-shadow:
+    0 0 2px rgba(255,255,255,0.18),
+    0 0 10px var(--glow1);
+  padding: 24px 28px;
+  border-radius: 16px;
+  background: rgba(15, 30, 45, 0.45);
+  box-shadow:
+    0 0 0 1px rgba(180, 220, 255, 0.1) inset,
+    0 6px 28px rgba(0, 0, 0, 0.35);
+}
+
+.loading-box .spinner {
+  width: 46px;
+  height: 46px;
+  margin: 0 auto 12px;
+  border-radius: 50%;
+  border: 4px solid rgba(255, 255, 255, 0.18);
+  border-top-color: currentColor;
+  filter: drop-shadow(0 0 8px var(--glow1));
+  animation: fm-spin 1s linear infinite;
+}
+
+.loading-box .loading-text {
+  font-size: 20px;
+  line-height: 1.35;
+  opacity: 0.95;
+  animation: legend-fade 2.5s ease-in-out infinite;
+}
+
+@keyframes legend-fade {
+  0%,100% { opacity: 0.3; }
+  50% { opacity: 1; }
+}
+
+/* When overlay visible, lock page scroll via body.loading-locked */
+body.loading-locked { overflow: hidden; }
+
+/* Keyframes & accessibility */
+@keyframes fm-spin { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .loading-box .spinner { animation: none; }
+}
+
+/* ===== Small screen tweaks ============================================ */
 @media (max-width: 600px) {
-  .year {
-    font-size: 40px;
-    left: 18px;
-    top: 18px;
-  }
-  .scenario {
-    font-size: 36px;
-    margin-bottom: 60px;
-  }
-  .option {
-    font-size: 22px;
-  }
+  .year { font-size: 40px; left: 18px; top: 18px; }
+  .scenario { font-size: 36px; margin-bottom: 60px; }
+  .option { font-size: 22px; }
+  .loading-box .loading-text { font-size: 18px; }
+  .loading-box .spinner { width: 40px; height: 40px; }
 }
