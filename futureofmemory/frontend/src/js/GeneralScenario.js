@@ -21,7 +21,7 @@ const overlayText = overlayEl?.querySelector('.loading-text');
 function showOverlay(msg = 'Loading…') {
   if (overlayText) overlayText.textContent = msg;
   if (overlayEl) overlayEl.hidden = false;
-  document.body.classList.add('loading-locked'); 
+  document.body.classList.add('loading-locked');
 }
 
 function hideOverlay() {
@@ -115,15 +115,15 @@ function renderScenarioAndChoices(s) {
     optionsUl.appendChild(li);
   });
 
-  return { hasChoices: choices.length > 0 };
+  return {hasChoices: choices.length > 0};
 }
 
 // When choices is empty, short polling is conducted until ready
-async function pollUntilChoicesReady({ pin, maxMs = 20000, intervalMs = 1200 }) {
+async function pollUntilChoicesReady({pin, maxMs = 20000, intervalMs = 1200}) {
   const start = Date.now();
   while (Date.now() - start < maxMs) {
     try {
-      const s = await getCurrentScenario({ pin });
+      const s = await getCurrentScenario({pin});
       const has = Array.isArray(s?.choices) && s.choices.length > 0;
       if (has) {
         renderScenarioAndChoices(s);
@@ -161,11 +161,11 @@ async function loadStep(i) {
   try {
     // 1. Read the existing scene first
     const s = await getCurrentScenario({pin});
-    const { hasChoices } = renderScenarioAndChoices(s);
+    const {hasChoices} = renderScenarioAndChoices(s);
 
     if (!hasChoices) {
       showOverlay('Generating choices…');
-      const ok = await pollUntilChoicesReady({ pin });
+      const ok = await pollUntilChoicesReady({pin});
       if (!ok) {
         scenarioEl.textContent = 'Choices are still being prepared. Please try again shortly.';
       }
@@ -177,11 +177,11 @@ async function loadStep(i) {
       try {
         showOverlay('Fate is not given — it is constructed…');
         const created = await getScenario({pin});
-        const { hasChoices } = renderScenarioAndChoices(created);
+        const {hasChoices} = renderScenarioAndChoices(created);
 
         if (!hasChoices) {
           showOverlay('Generating choices…');
-          await pollUntilChoicesReady({ pin });
+          await pollUntilChoicesReady({pin});
         }
         hideOverlay();
       } catch (inner) {
@@ -237,10 +237,10 @@ optionsUl.addEventListener('click', (ev) => {
       try {
         const next = await getNextScenario({pin, previousScenarioId: scenarioId});
         stepIndex += 1;
-        const { hasChoices } = renderScenarioAndChoices(next);
+        const {hasChoices} = renderScenarioAndChoices(next);
         if (!hasChoices) {
           showOverlay('Generating choices…');
-          await pollUntilChoicesReady({ pin });
+          await pollUntilChoicesReady({pin});
         }
       } catch (e) {
         console.error('getNextScenario failed', e);

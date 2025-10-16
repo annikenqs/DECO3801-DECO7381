@@ -1,4 +1,4 @@
-import { checkFactionVoting, voteForFaction } from '../api/futureMemoryApi.js';
+import {checkFactionVoting, voteForFaction} from '../api/futureMemoryApi.js';
 
 const FINAL_SHOW_MS = 3000; // how long to show the final faction before navigating
 
@@ -48,7 +48,7 @@ function formatFaction(f) {
   const map = {
     rightists: 'Rightists',
     responsibilists: 'Responsibilists',
-    resourceists: 'Resourceists'
+    resourceists: 'Resourceists',
   };
   return map[f.toLowerCase()] || f;
 }
@@ -65,7 +65,7 @@ function showFinalAndNavigate(pin, faction) {
 /* ----------------- Poll vote status ----------------- */
 async function pollVotingStatus(pin) {
   try {
-    const status = await checkFactionVoting({ pin });
+    const status = await checkFactionVoting({pin});
     console.log('[Polling] Faction vote status:', status);
 
     if (status.allVoted && status.faction) {
@@ -73,10 +73,8 @@ async function pollVotingStatus(pin) {
     }
   } catch (err) {
     console.warn('[Polling] Failed to check faction voting:', err?.message || err);
-    
   }
 }
-
 
 function hideChoices() {
   document.querySelectorAll('.choice').forEach((btn) => (btn.style.display = 'none'));
@@ -126,7 +124,7 @@ document.addEventListener('DOMContentLoaded', () => {
       setLoading('Submitting your vote...');
 
       try {
-        const data = await voteForFaction({ pin, faction });
+        const data = await voteForFaction({pin, faction});
         console.log('Vote successful:', data);
 
         if (data?.allVoted && data?.faction) {

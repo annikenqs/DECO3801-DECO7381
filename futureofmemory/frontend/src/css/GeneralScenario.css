@@ -17,8 +17,13 @@
   --glow2: rgba(120, 180, 255, 0.22);
 }
 
-* { box-sizing: border-box; }
-html, body { height: 100%; }
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  height: 100%;
+}
 
 body {
   margin: 0;
@@ -94,7 +99,9 @@ body::after {
   text-align: center;
   margin-top: 48px;
 }
-.options li { margin: 10px 0; }
+.options li {
+  margin: 10px 0;
+}
 
 .option {
   appearance: none;
@@ -114,7 +121,9 @@ body::after {
 .option::after {
   content: '';
   position: absolute;
-  left: 0; right: 0; bottom: -3px;
+  left: 0;
+  right: 0;
+  bottom: -3px;
   height: 2px;
   background: linear-gradient(90deg, rgba(180, 220, 255, 0.85), rgba(130, 190, 255, 0.85));
   transform: scaleX(0);
@@ -123,7 +132,9 @@ body::after {
   transition: transform 0.22s ease;
 }
 .option:hover::after,
-.option:focus-visible::after { transform: scaleX(1); }
+.option:focus-visible::after {
+  transform: scaleX(1);
+}
 .option:hover,
 .option:focus-visible {
   outline: none;
@@ -139,7 +150,9 @@ body::after {
   opacity: 0.55;
   text-shadow: none;
 }
-.option[disabled]::after { display: none; }
+.option[disabled]::after {
+  display: none;
+}
 
 .loading-overlay {
   position: fixed;
@@ -152,13 +165,15 @@ body::after {
     rgba(2, 7, 12, 0.55);
   backdrop-filter: blur(3px);
 }
-.loading-overlay[hidden] { display: none !important; }
+.loading-overlay[hidden] {
+  display: none !important;
+}
 
 .loading-box {
   text-align: center;
   color: var(--ink);
   text-shadow:
-    0 0 2px rgba(255,255,255,0.18),
+    0 0 2px rgba(255, 255, 255, 0.18),
     0 0 10px var(--glow1);
   padding: 24px 28px;
   border-radius: 16px;
@@ -187,25 +202,52 @@ body::after {
 }
 
 @keyframes legend-fade {
-  0%,100% { opacity: 0.3; }
-  50% { opacity: 1; }
+  0%,
+  100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 1;
+  }
 }
 
 /* When overlay visible, lock page scroll via body.loading-locked */
-body.loading-locked { overflow: hidden; }
+body.loading-locked {
+  overflow: hidden;
+}
 
 /* Keyframes & accessibility */
-@keyframes fm-spin { to { transform: rotate(360deg); } }
+@keyframes fm-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
 
 @media (prefers-reduced-motion: reduce) {
-  .loading-box .spinner { animation: none; }
+  .loading-box .spinner {
+    animation: none;
+  }
 }
 
 /* ===== Small screen tweaks ============================================ */
 @media (max-width: 600px) {
-  .year { font-size: 40px; left: 18px; top: 18px; }
-  .scenario { font-size: 36px; margin-bottom: 60px; }
-  .option { font-size: 22px; }
-  .loading-box .loading-text { font-size: 18px; }
-  .loading-box .spinner { width: 40px; height: 40px; }
+  .year {
+    font-size: 40px;
+    left: 18px;
+    top: 18px;
+  }
+  .scenario {
+    font-size: 36px;
+    margin-bottom: 60px;
+  }
+  .option {
+    font-size: 22px;
+  }
+  .loading-box .loading-text {
+    font-size: 18px;
+  }
+  .loading-box .spinner {
+    width: 40px;
+    height: 40px;
+  }
 }
