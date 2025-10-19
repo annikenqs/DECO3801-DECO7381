@@ -15,13 +15,32 @@
     <main class="stage" role="main">
       <div id="scenarioText" class="scenario">Fetching scenario from server...</div>
 
-      <!-- optionsn-->
+      <!-- options -->
       <ul id="options" class="options" aria-label="Options">
         <li><button class="option" data-id="A">A: Fetching option from server...</button></li>
         <li><button class="option" data-id="B">B: Fetching option from server...</button></li>
         <li><button class="option" data-id="C">C: Fetching option from server...</button></li>
       </ul>
     </main>
+
+    <!-- Loading Overlay -->
+    <div id="fm-loading" aria-hidden="true" hidden>
+      <div class="fm-loading__backdrop"></div>
+      <div class="fm-loading__panel" role="status" aria-live="polite">
+        <div class="fm-card">
+          <!-- Asteroid orbit -->
+          <div class="fm-orbit" aria-hidden="true">
+            <div class="fm-planet"></div>
+            <div class="fm-asteroid"></div>
+            <div class="fm-asteroid fm-asteroid--alt"></div>
+          </div>
+
+          <p class="fm-loading__text" id="fm-loading-text">
+            Fate is not given — it is constructed...
+          </p>
+        </div>
+      </div>
+    </div>
 
     <script type="module" src="../js/GeneralScenario.js"></script>
   </body>
