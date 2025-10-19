@@ -4,22 +4,23 @@ djangorestframework
 django-cors-headers
 
 # LangChain + RAG
-langchain
-langchain-community
-langchain-chroma
+langchain==0.2.14
+langchain-core==0.2.43
+langchain-community==0.2.12
+langchain-chroma==0.1.4
 langchain-huggingface
 langgraph
-chromadb
+chromadb==0.5.3
 
 # Models/embeddings
-transformers
-sentence-transformers
-torch
+transformers==4.45.2
+sentence-transformers==2.7.0
+torch==2.9.0
 numpy
 
 # Google Gemini
 google-generativeai
-langchain-google-genai
+langchain-google-genai==1.0.10
 
 # Document loaders
 python-docx
