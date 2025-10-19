@@ -273,7 +273,7 @@ class NextScenarioView(APIView):
                     scenario=prev.get("text"),
                     chosen_choice=chosen_text,
                     faction=session.get("faction"),
- )
+                )
             except Exception as e:
                 print(f"[NextScenarioView] RAG ERROR: {type(e).__name__}: {e}")
                 rag_result = None

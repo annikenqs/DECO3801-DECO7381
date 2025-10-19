@@ -139,7 +139,7 @@ graph_builder = StateGraph(State).add_sequence([retrieve, generate])
 graph_builder.add_edge(START, "retrieve")
 graph = graph_builder.compile()
 
-def run_rag(year: int = 2075, scenario=None, choices=None, chosen_choice=None, faction="Unknown"):
+def run_rag(year: int = 2075, scenario=None, choices=None, chosen_choice=None, faction="Unknown", **kwargs):
     state = {
         "year": year,
         "scenario": scenario,
