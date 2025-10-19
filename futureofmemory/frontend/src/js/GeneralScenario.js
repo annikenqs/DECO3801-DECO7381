@@ -16,9 +16,7 @@ const FMLoading = (() => {
   let counter = 0;
   let timeoutId = null;
 
-  const lines = [
-     'Fate is not given — it is constructed...'
-  ];
+  const lines = ['Fate is not given — it is constructed...'];
 
   function pickLine(reason) {
     if (typeof reason === 'string' && reason.trim()) return reason;
@@ -33,7 +31,7 @@ const FMLoading = (() => {
     const t = textEl();
     if (t) t.textContent = pickLine(reason);
     clearTimeout(timeoutId);
-    timeoutId = setTimeout(() => forceHide(), 25000); 
+    timeoutId = setTimeout(() => forceHide(), 25000);
   }
 
   function hide() {
@@ -54,7 +52,7 @@ const FMLoading = (() => {
     if (t && typeof msg === 'string' && msg.trim()) t.textContent = msg;
   }
 
-  return { show, hide, forceHide, setText };
+  return {show, hide, forceHide, setText};
 })();
 
 const START_YEAR = 2075;
@@ -75,7 +73,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // Year
 const yearOf = (i) => START_YEAR + i;
-const setProgress = (i) => { progressEl.textContent = `YEAR ${yearOf(i)}`; };
+const setProgress = (i) => {
+  progressEl.textContent = `YEAR ${yearOf(i)}`;
+};
 
 async function submitVoteAndPoll({pin, scenarioId, choice, onTick, onDone}) {
   try {
@@ -185,7 +185,7 @@ async function loadStep(i) {
   setLoadingUI(stepIndex);
 
   try {
-    const s = await getCurrentScenario({pin}); 
+    const s = await getCurrentScenario({pin});
     console.log('[loadStep] got current scenario', s);
     if (!s || !s.id) throw Object.assign(new Error('Empty current scenario'), {status: 404});
     renderScenarioAndChoices(s);
@@ -200,14 +200,22 @@ async function loadStep(i) {
       } catch (inner) {
         console.error('[loadStep] POST /scenario failed', inner);
         scenarioEl.textContent = 'Backend unavailable; showing placeholder.';
-        renderOptions([{id:'A',label:'A'},{id:'B',label:'B'},{id:'C',label:'C'}]);
+        renderOptions([
+          {id: 'A', label: 'A'},
+          {id: 'B', label: 'B'},
+          {id: 'C', label: 'C'},
+        ]);
       }
     } else {
       scenarioEl.textContent = 'Backend unavailable; showing placeholder.';
-      renderOptions([{id:'A',label:'A'},{id:'B',label:'B'},{id:'C',label:'C'}]);
+      renderOptions([
+        {id: 'A', label: 'A'},
+        {id: 'B', label: 'B'},
+        {id: 'C', label: 'C'},
+      ]);
     }
   } finally {
-    FMLoading.hide(); 
+    FMLoading.hide();
   }
 }
 
@@ -238,15 +246,22 @@ optionsUl.addEventListener('click', (ev) => {
     onDone: async (final) => {
       // —— final choice ——
       const winnerId =
-        final?.winnerId ?? final?.winner_id ?? final?.winner ?? final?.winnerLetter ?? final?.winner_letter;
+        final?.winnerId ??
+        final?.winner_id ??
+        final?.winner ??
+        final?.winnerLetter ??
+        final?.winner_letter;
       const winnerText =
-        final?.winnerText ?? final?.winner_text ?? lastChoicesMap[winnerId] ?? (winnerId ? `Option ${winnerId}` : 'Winner decided');
+        final?.winnerText ??
+        final?.winner_text ??
+        lastChoicesMap[winnerId] ??
+        (winnerId ? `Option ${winnerId}` : 'Winner decided');
 
       const finalMsg = `Final choice: ${winnerText}`;
       scenarioEl.textContent = finalMsg;
       FMLoading.setText(finalMsg);
 
-      await sleep(4000); 
+      await sleep(4000);
 
       // —— Next year——
       FMLoading.setText('Fate is not given — it is constructed...');
@@ -259,7 +274,7 @@ optionsUl.addEventListener('click', (ev) => {
         scenarioEl.textContent = 'Failed to load next scenario. Retrying…';
       } finally {
         optionsUl.querySelectorAll('button.option').forEach((b) => (b.disabled = false));
-        FMLoading.hide(); 
+        FMLoading.hide();
       }
     },
   });

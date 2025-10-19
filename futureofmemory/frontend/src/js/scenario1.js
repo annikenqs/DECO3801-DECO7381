@@ -1,28 +1,38 @@
 // scenario1.js
-import { checkFactionVoting, voteForFaction } from '../api/futureMemoryApi.js';
+import {checkFactionVoting, voteForFaction} from '../api/futureMemoryApi.js';
 
 // ===== Loading Overlay=====
 const FMLoading = (() => {
   const root = () => document.getElementById('fm-loading');
   const text = () => document.getElementById('fm-loading-text');
-  let n = 0, timer = null;
+  let n = 0,
+    timer = null;
 
-  function show(msg){
+  function show(msg) {
     n++;
     const el = root();
     if (!el) return;
     el.hidden = false;
-    if (msg && text()) text().innerHTML = msg; 
+    if (msg && text()) text().innerHTML = msg;
     clearTimeout(timer);
-    timer = setTimeout(forceHide, 25000); 
+    timer = setTimeout(forceHide, 25000);
   }
-  function setText(msg){
+  function setText(msg) {
     const el = text();
     if (el && msg != null) el.innerHTML = msg;
   }
-  function hide(){ n = Math.max(0, n-1); if (n === 0) forceHide(); }
-  function forceHide(){ const el = root(); if (el) el.hidden = true; clearTimeout(timer); timer = null; n = 0; }
-  return { show, hide, setText, forceHide };
+  function hide() {
+    n = Math.max(0, n - 1);
+    if (n === 0) forceHide();
+  }
+  function forceHide() {
+    const el = root();
+    if (el) el.hidden = true;
+    clearTimeout(timer);
+    timer = null;
+    n = 0;
+  }
+  return {show, hide, setText, forceHide};
 })();
 
 const FINAL_HOLD_MS = 4000; // The "Final Camp" section in Loading displays the dwell time
@@ -34,7 +44,7 @@ function getPinFromUrl() {
 // --- poll status ---
 async function pollVotingStatus(pin) {
   try {
-    const status = await checkFactionVoting({ pin });
+    const status = await checkFactionVoting({pin});
     console.log('[Polling] Faction vote status:', status);
 
     const votes = status?.total_votes ?? status?.votesIn ?? null;
@@ -76,7 +86,7 @@ function showMessage(msg) {
     msgEl.style.textAlign = 'center';
     document.querySelector('.wrap').appendChild(msgEl);
   }
-  msgEl.textContent = msg; 
+  msgEl.textContent = msg;
 }
 
 function formatFaction(f) {
@@ -91,7 +101,9 @@ function formatFaction(f) {
 function goToNextPage(pin) {
   const url = new URL('GeneralScenario.html', window.location.href);
   url.searchParams.set('pin', pin);
-  setTimeout(() => { location.href = url.toString(); }, 300);
+  setTimeout(() => {
+    location.href = url.toString();
+  }, 300);
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -117,7 +129,7 @@ document.addEventListener('DOMContentLoaded', () => {
       FMLoading.show('Submitting your vote…');
 
       try {
-        const data = await voteForFaction({ pin, faction });
+        const data = await voteForFaction({pin, faction});
         console.log('Vote successful:', data);
 
         // wait stage
@@ -136,7 +148,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (data.allVoted && data.faction) {
           const factionKey = String(data.faction || '').toLowerCase();
           const finalTextLoading = `Final faction: <span class="final-faction ${factionKey}">${formatFaction(data.faction)}</span>`;
-          showMessage(`Final faction: ${formatFaction(data.faction)}`); 
+          showMessage(`Final faction: ${formatFaction(data.faction)}`);
           FMLoading.setText(finalTextLoading);
           await sleep(FINAL_HOLD_MS);
           FMLoading.setText('Branching the timeline…');
