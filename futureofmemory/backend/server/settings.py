@@ -93,23 +93,11 @@ WSGI_APPLICATION = 'server.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-import sys
-
-# Use SQLite for testing, dummy backend for production (since we use Firebase)
-if 'test' in sys.argv:
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': ':memory:',  
-        }
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.dummy"
     }
-else:
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.dummy"
-        }
-    }
-
+}
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
