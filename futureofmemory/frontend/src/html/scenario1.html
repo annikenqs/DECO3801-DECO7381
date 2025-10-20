@@ -63,8 +63,26 @@
             </p>
           </div>
         </button>
+
         <p id="vote-message"></p>
       </section>
     </main>
+
+    <!-- Loading Overlay：Asteroid orbit -->
+    <div id="fm-loading" aria-hidden="true" hidden>
+      <div class="fm-loading__backdrop"></div>
+      <div class="fm-loading__panel" role="status" aria-live="polite">
+        <div class="fm-card">
+          <div class="fm-orbit" aria-hidden="true">
+            <div class="fm-planet"></div>
+            <div class="fm-asteroid"></div>
+            <div class="fm-asteroid fm-asteroid--alt"></div>
+          </div>
+          <p class="fm-loading__text" id="fm-loading-text">
+            Fate is not given — it is constructed...
+          </p>
+        </div>
+      </div>
+    </div>
   </body>
 </html>
