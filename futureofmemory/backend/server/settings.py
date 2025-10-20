@@ -33,6 +33,8 @@ ALLOWED_HOSTS = [
     "testserver", 
     "127.0.0.1", 
     "localhost",
+    "deepthinkers.uqcloud.net",
+    "deepthinkers.zones.eait.uq.edu.au"
 ]
 
 
@@ -134,7 +136,9 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = "/static/"; STATIC_ROOT = "/home/s4980636/www/static"
+MEDIA_URL = "/media/";   MEDIA_ROOT = "/home/s4980636/www/media"
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
