@@ -2,6 +2,7 @@
 django
 djangorestframework
 django-cors-headers
+uWSGI>=2.0.25.1
 
 # LangChain + RAG
 langchain==0.2.14
