@@ -1,7 +1,9 @@
-# Django
+# Server
 django
 djangorestframework
 django-cors-headers
+gunicorn==23.0.0
+uWSGI==2.0.25.1; sys_platform == "linux" and python_version < "3.13"
 
 # LangChain + RAG
 langchain==0.2.14
