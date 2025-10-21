@@ -34,6 +34,7 @@ ALLOWED_HOSTS = [
     "127.0.0.1",
     "localhost",
     "futureofmemory.onrender.com",
+    "futureofmemory-frontend.onrender.com"
 ]
 
 
@@ -67,6 +68,12 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:5500",
     "http://127.0.0.1:5173",
     "http://localhost:5173",
+    "https://futureofmemory-frontend.onrender.com",
+]
+
+CSRF_TRUSTED_ORIGINS = [
+    "https://futureofmemory-frontend.onrender.com",  
+    "https://futureofmemory.onrender.com",        
 ]
 
 CORS_ALLOW_CREDENTIALS = True
