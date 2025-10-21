@@ -2,6 +2,7 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 from typing import Optional
 import random
+import os
 
 # Init Firebase app only once
 if not firebase_admin._apps:
