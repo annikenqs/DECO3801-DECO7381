@@ -155,3 +155,223 @@ body::after {
     font-size: 22px;
   }
 }
+
+/* === Future Memory Loading Overlay === */
+#fm-loading[hidden] {
+  display: none !important;
+}
+#fm-loading {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+}
+
+.fm-loading__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(2, 7, 12, 0.6);
+  backdrop-filter: blur(3px);
+}
+.fm-loading__panel {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  padding: 24px;
+}
+.fm-loading__panel > * {
+  pointer-events: auto;
+}
+
+/* === Loading card box === */
+.fm-card {
+  min-width: min(86vw, 520px);
+  max-width: 92vw;
+  padding: 20px 24px;
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(12, 24, 38, 0.85), rgba(8, 18, 30, 0.92));
+  border: 1px solid rgba(164, 210, 255, 0.22);
+  box-shadow:
+    0 8px 26px rgba(2, 7, 12, 0.55),
+    0 0 0 1px rgba(164, 210, 255, 0.08) inset;
+  backdrop-filter: blur(6px) saturate(1.02);
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  animation: fm-pop 220ms ease-out both;
+}
+@keyframes fm-pop {
+  from {
+    transform: translateY(4px) scale(0.98);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+/* Breathing animation*/
+.fm-loading__text {
+  margin: 0;
+  font-family: 'VT323', 'Courier New', monospace;
+  font-size: 22px;
+  letter-spacing: 0.3px;
+  color: #cfe3ff;
+  text-align: center;
+  text-shadow: 0 0 10px rgba(164, 210, 255, 0.28);
+  animation: fm-breathe 2.2s ease-in-out infinite;
+}
+@keyframes fm-breathe {
+  0% {
+    opacity: 0.72;
+    text-shadow:
+      0 0 6px rgba(164, 210, 255, 0.2),
+      0 0 14px rgba(120, 180, 255, 0.12);
+    transform: translateY(0);
+  }
+  50% {
+    opacity: 1;
+    text-shadow:
+      0 0 10px rgba(164, 210, 255, 0.36),
+      0 0 22px rgba(120, 180, 255, 0.2);
+    transform: translateY(-0.5px);
+  }
+  100% {
+    opacity: 0.72;
+    text-shadow:
+      0 0 6px rgba(164, 210, 255, 0.2),
+      0 0 14px rgba(120, 180, 255, 0.12);
+    transform: translateY(0);
+  }
+}
+
+/* === Asteroid orbit animation === */
+.fm-orbit {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  margin: 2px auto 10px;
+  filter: drop-shadow(0 0 10px rgba(164, 210, 255, 0.25));
+}
+/* Track visualizatio */
+.fm-orbit::before {
+  content: '';
+  position: absolute;
+  inset: 6px;
+  border-radius: 50%;
+  border: 1px solid rgba(164, 210, 255, 0.28);
+  box-shadow:
+    0 0 12px rgba(120, 180, 255, 0.18) inset,
+    0 0 8px rgba(164, 210, 255, 0.18);
+  opacity: 0.9;
+}
+/* Central Planet */
+.fm-planet {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 16px;
+  height: 16px;
+  margin-left: -8px;
+  margin-top: -8px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 30% 30%,
+    rgba(255, 255, 255, 0.95),
+    rgba(207, 227, 255, 0.85) 40%,
+    rgba(120, 180, 255, 0.25) 70%,
+    rgba(0, 0, 0, 0) 71%
+  );
+  box-shadow:
+    0 0 10px rgba(164, 210, 255, 0.45),
+    0 0 24px rgba(120, 180, 255, 0.25);
+  animation: fm-planet-pulse 2.4s ease-in-out infinite;
+}
+@keyframes fm-planet-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.95;
+  }
+  50% {
+    transform: scale(1.06);
+    opacity: 1;
+  }
+}
+/* Asteroid (Revolution) */
+.fm-asteroid {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  margin-left: -4px;
+  margin-top: -4px;
+  border-radius: 50%;
+  background: rgba(207, 227, 255, 0.95);
+  box-shadow:
+    0 0 8px rgba(164, 210, 255, 0.55),
+    0 0 14px rgba(120, 180, 255, 0.35);
+  transform: rotate(0deg) translateY(-26px) rotate(0deg);
+  animation: fm-asteroid-orbit 2.8s linear infinite;
+}
+/* The second asteroid */
+.fm-asteroid--alt {
+  width: 6px;
+  height: 6px;
+  margin-left: -3px;
+  margin-top: -3px;
+  opacity: 0.9;
+  transform: rotate(45deg) translateY(-20px) rotate(-45deg);
+  animation: fm-asteroid-orbit-alt 3.6s linear infinite;
+  background: rgba(207, 227, 255, 0.85);
+  box-shadow:
+    0 0 6px rgba(164, 210, 255, 0.45),
+    0 0 10px rgba(120, 180, 255, 0.28);
+}
+@keyframes fm-asteroid-orbit {
+  from {
+    transform: rotate(0deg) translateY(-26px) rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg) translateY(-26px) rotate(-360deg);
+  }
+}
+@keyframes fm-asteroid-orbit-alt {
+  from {
+    transform: rotate(45deg) translateY(-20px) rotate(-45deg);
+  }
+  to {
+    transform: rotate(405deg) translateY(-20px) rotate(-405deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fm-card {
+    animation: none;
+  }
+  .fm-loading__text {
+    animation: none;
+  }
+  .fm-planet {
+    animation: fm-planet-pulse 2.2s ease-in-out infinite;
+  }
+  .fm-asteroid,
+  .fm-asteroid--alt {
+    animation: fm-asteroid-breathe 2.2s ease-in-out infinite;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  @keyframes fm-asteroid-breathe {
+    0%,
+    100% {
+      opacity: 0.8;
+      transform: translate(-50%, -50%) scale(1);
+    }
+    50% {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1.06);
+    }
+  }
+}
