@@ -1,6 +1,6 @@
 from langchain_chroma import Chroma
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_community.document_loaders import PyPDFLoader, Docx2txtLoader
+from langchain_community.document_loaders import PyPDFLoader
 from pathlib import Path
 
 def init_chroma(embeddings, persist_directory="./chroma_langchain_db"):
@@ -20,8 +20,6 @@ def load_documents(data_dir=DATA_DIR):
         suf = path.suffix.lower()
         if suf == ".pdf":
             loaded = PyPDFLoader(str(path)).load()
-        elif suf == ".docx":
-            loaded = Docx2txtLoader(str(path)).load()
         else:
             continue
         for d in loaded:
