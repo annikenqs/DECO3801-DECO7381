@@ -2,6 +2,7 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 from typing import Optional
 import random
+import json
 
 # Init Firebase app only once
 if not firebase_admin._apps:
@@ -374,6 +375,15 @@ def add_first_scenario_if_absent_txn(transaction: firestore.Transaction, pin: st
 
     year = int(data.get("year", 2075))
 
+    text_in = scenario.get("text") or scenario.get("scenario_text") or ""
+    choices_in = scenario.get("choices") or []
+    if isinstance(text_in, str) and text_in.strip().startswith("{"):
+        maybe = _extract_first_json_obj(text_in)
+        if isinstance(maybe, dict):
+            text_in = maybe.get("scenario_text") or maybe.get("text") or text_in
+            if not choices_in:
+                choices_in = maybe.get("choices") or []
+
     # Normalize choices and assemble the scenario we will write
     normalized_choices = _normalize_choices_for_storage(scenario.get("choices", []))
     scenario_to_write = {
@@ -430,6 +440,15 @@ def add_next_scenario_if_absent_txn(
     if not prev or prev.get("chosen") is None:
         raise ValueError("Previous scenario not finalized.")
 
+    text_in = candidate.get("text") or candidate.get("scenario_text") or ""
+    choices_in = candidate.get("choices") or []
+    if isinstance(text_in, str) and text_in.strip().startswith("{"):
+        maybe = _extract_first_json_obj(text_in)
+        if isinstance(maybe, dict):
+            text_in = maybe.get("scenario_text") or maybe.get("text") or text_in
+            if not choices_in:
+                choices_in = maybe.get("choices") or []
+
     # Normalize candidate
     choices = _normalize_choices_for_storage(candidate.get("choices", []))
     text = candidate.get("text") or candidate.get("scenario_text") or "No scenario generated (fallback)"
@@ -453,4 +472,47 @@ def add_next_scenario_if_absent_txn(
 def add_next_scenario_if_absent(pin: str, expected_new_id: int, candidate: dict, new_year: int) -> dict:
     tx = db.transaction()
     return add_next_scenario_if_absent_txn(tx, pin, expected_new_id, candidate, new_year)
+
+def _extract_first_json_obj(s: str):
+    """Find and parse the first balanced {...} JSON object in s. Ignores braces inside quotes."""
+    if not isinstance(s, str):
+        return None
+    depth = 0
+    start = None
+    in_str = False
+    esc = False
+    for i, ch in enumerate(s):
+        if in_str:
+            if esc:
+                esc = False
+            elif ch == "\\":
+                esc = True
+            elif ch == '"':
+                in_str = False
+            continue
+        if ch == '"':
+            in_str = True
+            continue
+        if ch == '{':
+            if depth == 0:
+                start = i
+            depth += 1
+        elif ch == '}' and depth > 0:
+            depth -= 1
+            if depth == 0 and start is not None:
+                frag = s[start:i+1]
+                try:
+                    return json.loads(frag)
+                except Exception:
+                    start = None  # keep scanning
+    # fallback: maybe whole string is JSON
+    try:
+        return json.loads(s)
+    except Exception:
+        return None
+
+def _coerce_choices_for_storage(raw_choices: list) -> list:
+    """Existing helper (leave as-is)."""
+    pass
+
 

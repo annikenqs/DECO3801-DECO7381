@@ -1,38 +1,43 @@
 from typing_extensions import TypedDict, List
 from langgraph.graph import StateGraph, START
 from langchain_core.documents import Document
-import json
-import re
+from threading import Lock
 
 from .embedding_service import get_embeddings
 from .chroma_service import init_chroma, load_documents
 from .llm_service import (
-    get_llm,
+    generate_json,
     SYSTEM_RULES,
     first_scenario_and_choices_prompt,
     next_scenario_and_choices_prompt,
 )
 
 vector_store = None
-llm = None
+_vector_lock = Lock()
 
 def init_rag():
-    global vector_store, llm
+    global vector_store
     if vector_store is None:
-        embeddings = get_embeddings()
-        vector_store = init_chroma(embeddings)
-        splits = load_documents()
-        if splits: 
-            vector_store.add_documents(splits)
-    if llm is None:
-        llm = get_llm()
-    return vector_store, llm
+        with _vector_lock:
+            if vector_store is None:
+                embeddings = get_embeddings()
+                vs = init_chroma(embeddings)
+                splits = load_documents()
+                if splits:
+                    vs.add_documents(splits)
+                vector_store = vs
+    return vector_store
 
 def run_rag_query(query: str):
-    vs, model = init_rag()
+    vs = init_rag()
     retriever = vs.as_retriever()
     docs = retriever.invoke(query)
-    return docs, model
+    return docs
+
+def _clip(s: str, max_chars: int) -> str:
+    if len(s) <= max_chars:
+        return s
+    return s[:max_chars].rsplit("\n", 1)[0] or s[:max_chars]
 
 # State
 class State(TypedDict):
@@ -46,94 +51,103 @@ class State(TypedDict):
     faction: str 
 
 def retrieve(state: State):
-    vs, _ = init_rag()
+    vs = init_rag()
 
-    year = state.get("year", 2075)
     faction = state.get("faction", "Unknown")
     prev_scenario = state.get("scenario", "")
     chosen_choice = state.get("chosen_choice", "")
 
     if prev_scenario and chosen_choice:
         query = (
-            f"Neurotechnology ethics, memory manipulation, and societal impact in the future."
+            "Neurotechnology ethics, memory manipulation, and societal impact in the future. "
             f"Focus on themes from the last event: {chosen_choice} and previous scenario {prev_scenario}. "
             f"Consider information that could be relevant to faction {faction}."
         )
     else:
         query = (
-            f"General context on neurotechnology, memory implants, memory manipulation, and ethics in the future"
+            "General context on neurotechnology, memory implants, memory manipulation, and ethics in the future. "
             f"Consider information that could be relevant to faction {faction}."
         )
 
-    retrieved_docs = vs.similarity_search(query, k=6) 
-    return {"context": retrieved_docs}
+    # smaller fanout
+    raw = vs.similarity_search(query, k=3)
 
-def safe_parse_response(raw: str) -> dict:
-    """Try to parse model output into JSON, with fallbacks."""
-    cleaned = re.sub(r"^```[a-zA-Z]*\n?", "", raw)  
-    cleaned = re.sub(r"\n?```$", "", cleaned)     
-    cleaned = cleaned.strip()
+    # de-dupe by (source, page)
+    seen = set()
+    deduped = []
+    for d in raw:
+        meta = d.metadata or {}
+        key = (meta.get("source"), meta.get("page"))
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(d)
 
-    try:
-        parsed = json.loads(cleaned)
-    except json.JSONDecodeError:
-        return {"raw": raw}
-
-    # Fallbacks if keys are missing
-    if "scenario_text" not in parsed and "scenario" in parsed:
-        parsed["scenario_text"] = parsed["scenario"]
-    if "scenario_text" not in parsed:
-        parsed["scenario_text"] = parsed.get("raw", "")
-
-    return parsed
+    return {"context": deduped[:2]}
 
 def generate(state: State):
-    vs, llm = init_rag()
+    vs = init_rag()
     docs_content = "\n\n".join(doc.page_content for doc in state["context"])
+
+    # Keep context compact (smaller than before)
+    docs_content = _clip(docs_content, 1600)  # ~400 tokens max
+
+
     year = state.get("year", 2075)
     faction = state.get("faction", "Unknown")
-
-    sources = list({(doc.metadata or {}).get("source") for doc in state["context"] if doc.metadata})
-    if not sources:
-        sources = ["(no_source_found)"]
+    sources = list({(doc.metadata or {}).get("source") for doc in state["context"] if doc.metadata}) or ["(no_source_found)"]
     citations_literal = ", ".join([f'"{s}"' for s in sources])
-    
-    chosen_choice_text = state.get("chosen_choice") or "None"
-    
-    if not state.get("scenario") or not state.get("chosen_choice"):
-        scenario_prompt = first_scenario_and_choices_prompt.format(
-            context=docs_content,
-            year=year,
-            system_rules=SYSTEM_RULES,
-            citations=citations_literal,
-            faction=faction
-        )
+
+    prev_scenario = state.get("scenario") or ""
+    chosen_choice_text = state.get("chosen_choice") or ""
+
+    # Build prompt with a CHAR BUDGET that keeps us < 1536 input tokens.
+    # Rule of thumb: 1 token ≈ 4 chars → budget ≈ 1200 tokens ≈ 4800 chars.
+    CHAR_BUDGET = 4800
+
+    def build_prompt(ctx: str) -> str:
+        if not prev_scenario or not chosen_choice_text:
+            return first_scenario_and_choices_prompt.format(
+                context=ctx, year=year, system_rules=SYSTEM_RULES,
+                citations=citations_literal, faction=faction,
+            )
+        else:
+            return next_scenario_and_choices_prompt.format(
+                context=ctx, year=year, system_rules=SYSTEM_RULES,
+                citations=citations_literal, faction=faction,
+                previous_scenario=prev_scenario, chosen_choice=chosen_choice_text,
+            )
+
+    # Iteratively shrink context until the WHOLE prompt fits.
+    ctx = docs_content
+    prompt = build_prompt(ctx)
+    while len(prompt) > CHAR_BUDGET and len(ctx) > 200:
+        # shrink by 20% each step
+        ctx = _clip(ctx, int(len(ctx) * 0.8))
+        prompt = build_prompt(ctx)
+
+    # Call the model (we already reduced max_new_tokens earlier)
+    out = generate_json(prompt, max_new_tokens=120, temperature=0.7)
+
+    # Normalize result (unchanged)
+    if isinstance(out, dict) and "scenario_text" in out:
+        scenario_text = out.get("scenario_text", "")
+        choices = out.get("choices") or []
+        citations = out.get("citations") or []
+    elif isinstance(out, dict) and "raw_text" in out:
+        scenario_text = out["raw_text"]; choices = []; citations = []
     else:
-        scenario_prompt = next_scenario_and_choices_prompt.format(
-            context=docs_content,
-            year=year,
-            system_rules=SYSTEM_RULES,
-            citations=citations_literal,
-            faction=faction,
-            previous_scenario=state.get("scenario", "None"),
-            chosen_choice=chosen_choice_text
-        )
-    
-    scenario_response = llm.invoke(scenario_prompt)
-    scenario_raw = scenario_response.content.strip()
-    scenario_parsed = safe_parse_response(scenario_raw)
-    scenario_text = scenario_parsed.get("scenario_text", "No scenario generated")
-    choices = scenario_parsed.get("choices", [])
-    citations = scenario_parsed.get("citations", [])
-    
-    return {
-        "scenario": {
-            "year": year,
-            "scenario_text": scenario_text,
-            "citations": citations,
-            "choices": choices
-        }
-    }
+        scenario_text = str(out); choices = []; citations = []
+
+    fixed = []
+    for i, ch in enumerate(choices[:3], start=1):
+        try:
+            cid = int(ch.get("id", i)); txt = (ch.get("text") or "").strip() or f"Choice {i}"
+        except Exception:
+            cid, txt = i, f"Choice {i}"
+        fixed.append({"id": cid, "text": txt})
+
+    return {"scenario": {"year": year, "scenario_text": scenario_text, "citations": citations, "choices": fixed}}
 
 graph_builder = StateGraph(State).add_sequence([retrieve, generate])
 graph_builder.add_edge(START, "retrieve")

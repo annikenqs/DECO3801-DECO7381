@@ -29,4 +29,7 @@ pypdf
 # Firebase
 firebase-admin
 
+boto3
+botocore
+
 
