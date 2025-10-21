@@ -30,9 +30,10 @@ SECRET_KEY = 'django-insecure-gf&=hz_jl!_5^3@o&c7q(-4zqb^m4yc$+%x$ndv@rcg*-n!r)$
 DEBUG = True
 
 ALLOWED_HOSTS = [
-    "testserver", 
-    "127.0.0.1", 
+    "testserver",
+    "127.0.0.1",
     "localhost",
+    "futureofmemory.onrender.com",
 ]
 
 
