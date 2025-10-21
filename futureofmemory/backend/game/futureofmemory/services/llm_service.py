@@ -1,10 +1,11 @@
 import os
 from langchain.chat_models import init_chat_model
 from langchain.prompts import PromptTemplate
-from langchain_google_genai import ChatGoogleGenerativeAI
 
 
 def get_llm():
+    from langchain_google_genai import ChatGoogleGenerativeAI
+    
     api_key = os.getenv("GOOGLE_API_KEY")
     if not api_key:
         raise ValueError(
