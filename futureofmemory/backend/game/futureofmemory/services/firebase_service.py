@@ -4,13 +4,17 @@ from typing import Optional
 import random
 import os
 
+print("Firebase credential path:", os.getenv("GOOGLE_APPLICATION_CREDENTIALS"))
+
 # Init Firebase app only once
 if not firebase_admin._apps:
     cred_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "serviceAccountKey.json")
+    print("Loading credentials from:", cred_path)
     cred = credentials.Certificate(cred_path)
     firebase_admin.initialize_app(cred)
 
 db = firestore.client()
+print("✅ Firebase initialized successfully")
 ref = db.collection('games')
 
 # converts an integer to a six-digit string

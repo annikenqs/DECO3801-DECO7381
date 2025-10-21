@@ -27,9 +27,11 @@ class SessionView(APIView):
 
             session = create_session(faction, year, "lobby", pin, numberofplayers=0)
 
+            print("✅ [SessionView] Session created successfully:", session)
             return Response(session, status=status.HTTP_201_CREATED)
 
         except Exception as e:
+            print("❌ [SessionView] Firestore error:", e)
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
