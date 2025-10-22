@@ -1,46 +1,31 @@
-import os, json, re
+import os
+import re
+import json
+import typing
+from typing import Any, Dict
+
+import boto3
+import botocore
 from langchain.prompts import PromptTemplate
-from .sagemaker_service import start_async_job, poll_async_output
 
-USE_SAGEMAKER = os.getenv("USE_SAGEMAKER", "true").lower() == "true"
+# ──────────────────────────────────────────────────────────────────────────────
+# Config
+# ──────────────────────────────────────────────────────────────────────────────
 
-if USE_SAGEMAKER:
-    from .sagemaker_service import invoke_async_tgi
+AWS_REGION = os.getenv("AWS_REGION", "us-west-2")
+ENDPOINT_NAME = os.getenv("SM_ENDPOINT_NAME", "neuro-rag-rt")
+MAX_INPUT_TOKENS = int(os.getenv("MAX_INPUT_TOKENS", "1536"))
+MAX_TOTAL_TOKENS = int(os.getenv("MAX_TOTAL_TOKENS", "2048"))
 
-DEFAULT_TIMEOUT_S = int(os.getenv("SM_TIMEOUT_SECONDS", "300"))  # 300 is plenty for warm endpoint
+_boto = boto3.Session(region_name=AWS_REGION)
+_rt = _boto.client("sagemaker-runtime")
 
-def start_generation(prompt: str, max_new_tokens=200, temperature=0.7) -> str:
-    extra = {"return_full_text": False}
-    return start_async_job(
-        prompt,
-        max_new_tokens=max_new_tokens,
-        temperature=temperature,
-        extra_params=extra,
-    )
-
-def collect_generation(output_location: str, timeout_s: int | None = None):
-    raw = poll_async_output(
-        output_location,
-        timeout_s=timeout_s or DEFAULT_TIMEOUT_S,
-        endpoint_name=os.getenv("SM_ENDPOINT_NAME", "neuro-rag-async"),
-    )
-    try:
-        return json.loads(raw) if isinstance(raw, str) else raw
-    except Exception:
-        return {"raw_text": raw}
-
-
-def get_llm():
-    """Return a Gemini client only when not using SageMaker."""
-    if USE_SAGEMAKER:
-        raise RuntimeError("get_llm() is only for the Gemini backend")
-    from langchain_google_genai import ChatGoogleGenerativeAI
-    api_key = os.getenv("GOOGLE_API_KEY")
-    if not api_key:
-        raise ValueError("GOOGLE_API_KEY environment variable is not set.")
-    return ChatGoogleGenerativeAI(model="gemini-2.5-flash", api_key=api_key)
+# ──────────────────────────────────────────────────────────────────────────────
+# Small helpers
+# ──────────────────────────────────────────────────────────────────────────────
 
 def _approx_tokens(s: str) -> int:
+    # very rough heuristic: ~4 chars per token
     return max(1, len(s) // 4)
 
 def _clip_chars(s: str, limit_chars: int) -> str:
@@ -48,7 +33,7 @@ def _clip_chars(s: str, limit_chars: int) -> str:
         return s
     return (s[:limit_chars].rsplit("\n", 1)[0]) or s[:limit_chars]
 
-def _extract_json(text: str):
+def _extract_json_block(text: str) -> Dict[str, Any] | None:
     """
     Try hard to find a JSON object in free-form text (with/without code fences),
     prefer one that contains 'scenario_text'.
@@ -56,11 +41,11 @@ def _extract_json(text: str):
     if not isinstance(text, str):
         return None
 
-    # remove fences
+    # strip code fences if present
     t = re.sub(r"^```[a-zA-Z]*\n?", "", text.strip())
     t = re.sub(r"\n?```$", "", t).strip()
 
-    # 1) Fast path: the whole thing is JSON
+    # 1) Whole string JSON?
     try:
         obj = json.loads(t)
         if isinstance(obj, dict):
@@ -68,56 +53,142 @@ def _extract_json(text: str):
     except Exception:
         pass
 
-    # 2) Scan for {...} substrings
+    # 2) Scan for {...}
     stack = []
-    starts = []
+    first_valid: Dict[str, Any] | None = None
     for i, ch in enumerate(t):
         if ch == "{":
             stack.append(i)
         elif ch == "}" and stack:
             start = stack.pop()
-            candidate = t[start:i+1]
+            candidate = t[start : i + 1]
             try:
                 obj = json.loads(candidate)
                 if isinstance(obj, dict):
-                    # prefer ones that look like our schema
                     if "scenario_text" in obj:
                         return obj
-                    # keep the first valid dict as fallback
-                    if not starts:
-                        starts.append(obj)
+                    if first_valid is None:
+                        first_valid = obj
             except Exception:
                 pass
-    if starts:
-        return starts[0]
-    return None
+    return first_valid
 
-MAX_INPUT_TOKENS = int(os.getenv("MAX_INPUT_TOKENS", "1536"))
+# ──────────────────────────────────────────────────────────────────────────────
+# Realtime SageMaker call
+# ──────────────────────────────────────────────────────────────────────────────
 
-def generate_json(prompt: str, max_new_tokens=200, temperature=0.7):
-    # Leave a larger headroom (e.g., 300 tokens) for safety
+def invoke_sync_tgi(
+    prompt: str,
+    *,
+    max_new_tokens: int = 180,
+    temperature: float = 0.7,
+    return_full_text: bool = False,
+    top_p: float = 0.9,
+    top_k: int | None = None,
+    repetition_penalty: float | None = None,
+) -> str:
+    """Call the realtime TGI endpoint synchronously and return a string (generated_text or raw JSON)."""
+    # Keep some headroom vs MAX_INPUT_TOKENS
     headroom = 300
     if _approx_tokens(prompt) >= MAX_INPUT_TOKENS - headroom:
         keep_chars = max(600, (MAX_INPUT_TOKENS - headroom) * 4)
         prompt = _clip_chars(prompt, keep_chars)
 
-    extra = {
-        # these won’t break TGI; harmless hints
-        "return_full_text": False
+    payload: Dict[str, Any] = {
+        "inputs": prompt,
+        "parameters": {
+            "max_new_tokens": max_new_tokens,
+            "temperature": temperature,
+            "return_full_text": return_full_text,
+            "top_p": top_p,
+        },
     }
+    if top_k is not None:
+        payload["parameters"]["top_k"] = top_k
+    if repetition_penalty is not None:
+        payload["parameters"]["repetition_penalty"] = repetition_penalty
 
-    raw = invoke_async_tgi(
-        prompt=prompt,
-        max_new_tokens=max_new_tokens,
-        temperature=temperature,
-        extra_params=extra,
+    resp = _rt.invoke_endpoint(
+        EndpointName=ENDPOINT_NAME,
+        ContentType="application/json",
+        Body=json.dumps(payload).encode("utf-8"),
     )
+
+    body = resp["Body"].read()
     try:
-        return json.loads(raw) if isinstance(raw, str) else raw
+        data = json.loads(body)
     except Exception:
-        return {"raw_text": raw}
+        # model returned plain text
+        return body.decode("utf-8", errors="replace")
 
+    # TGI returns either a list of {generated_text} or a dict with that key.
+    if isinstance(data, list) and data and isinstance(data[0], dict) and "generated_text" in data[0]:
+        return data[0]["generated_text"]
+    if isinstance(data, dict) and "generated_text" in data:
+        return data["generated_text"]
+    # fallback: raw JSON
+    return json.dumps(data)
 
+def generate_json(
+    prompt: str,
+    *,
+    max_new_tokens: int = 180,
+    temperature: float = 0.7,
+) -> Dict[str, Any]:
+    """
+    Realtime JSON generator. Returns a dict with:
+      - keys from the model (scenario_text, choices, citations) when possible
+      - or {"raw_text": "..."} fallback.
+    """
+    raw = invoke_sync_tgi(prompt, max_new_tokens=max_new_tokens, temperature=temperature)
+
+    # If it's JSON already:
+    if isinstance(raw, dict):  # (rare) if caller passed dict; keep it
+        return raw
+    try:
+        obj = json.loads(raw)
+        if isinstance(obj, dict):
+            return obj
+    except Exception:
+        pass
+
+    # Extract JSON block from free text, otherwise return raw_text
+    obj = _extract_json_block(raw)
+    if isinstance(obj, dict):
+        return obj
+    return {"raw_text": raw}
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Back-compat shims for code that still expects async-style functions
+# ──────────────────────────────────────────────────────────────────────────────
+
+def start_generation(prompt: str, max_new_tokens=200, temperature=0.7) -> Dict[str, Any]:
+    """
+    Back-compat: used to kick off async and return an S3 OutputLocation.
+    Now we run synchronously and return the parsed dict immediately.
+    """
+    return generate_json(prompt, max_new_tokens=max_new_tokens, temperature=temperature)
+
+def collect_generation(output_location: typing.Any, timeout_s: int | None = None) -> Dict[str, Any]:
+    """
+    Back-compat: used to poll S3 and return parsed output.
+    Now, if 'output_location' is already a dict (from start_generation), just return it.
+    """
+    if isinstance(output_location, dict):
+        return output_location
+    # If someone passes a string by mistake, try to parse it as JSON fallback:
+    if isinstance(output_location, str):
+        try:
+            obj = json.loads(output_location)
+            if isinstance(obj, dict):
+                return obj
+        except Exception:
+            return {"raw_text": output_location}
+    return {"raw_text": str(output_location)}
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Prompts & rules
+# ──────────────────────────────────────────────────────────────────────────────
 
 SYSTEM_RULES = {
     "rules": [

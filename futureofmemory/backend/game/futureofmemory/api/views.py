@@ -10,8 +10,7 @@ from rest_framework import status
 from game.futureofmemory.services.query_service import run_rag
 from game.futureofmemory.services.query_service import run_rag_query
 from game.futureofmemory.services.llm_service import (
-    start_generation,
-    collect_generation,
+    generate_json,
     first_scenario_and_choices_prompt,
     next_scenario_and_choices_prompt,
     SYSTEM_RULES,
@@ -295,63 +294,64 @@ class FactionResultView(APIView):
 class ScenarioView(APIView):
     """
     POST /api/session/{pin}/scenario/
-    Start generation of the FIRST scenario (non-blocking).
-    Returns 200 if it already exists, else 202 {pending:true} and UI should poll /scenario/current/.
+    Create the FIRST scenario synchronously (persist immediately).
+    - If it already exists, return it (200).
+    - Otherwise, generate, normalize, persist, and return it (200).
+    Frontend can still poll /scenario/current/; this is backward-compatible.
     """
     def post(self, request, pin):
-        session = get_session_by_pin(pin)
-        if not session:
-            return Response({"error": "Session not found"}, status=404)
-        if session.get("status") != "in-progress":
-            return Response({"error": "Game has not started yet."}, status=403)
-        if session.get("faction") is None:
-            return Response({"error": "Faction not finalized yet."}, status=409)
+        try:
+            session = get_session_by_pin(pin)
+            if not session:
+                return Response({"error": "Session not found"}, status=404)
+            if session.get("status") != "in-progress":
+                return Response({"error": "Game has not started yet."}, status=403)
+            if session.get("faction") is None:
+                return Response({"error": "Faction not finalized yet."}, status=409)
 
-        scenarios = session.get("scenarios", [])
-        if scenarios:
-            return Response(scenarios[0], status=200)
+            scenarios = session.get("scenarios", [])
+            if scenarios:
+                # Already have the first one
+                return Response(scenarios[0], status=200)
 
-        # Build context with RAG
-        docs = run_rag_query(query=f"neurotech memory ethics {session['faction']} {session.get('year', 2075)}")
-        context_text = "\n\n".join([getattr(d, "page_content", str(d)) for d in (docs or [])])
+            # ---- Build context (RAG) ----
+            docs = run_rag_query(
+                query=f"neurotechnology memory implants ethics {session['faction']} {session.get('year', 2075)}"
+            ) or []
+            context_text = "\n\n".join([getattr(d, "page_content", str(d)) for d in docs])
 
-        # Prompt
-        prompt = first_scenario_and_choices_prompt.format(
-            system_rules=json.dumps(SYSTEM_RULES),
-            context=context_text,
-            year=session.get("year", 2075),
-            faction=session["faction"],
-            citations=""
-        )
+            # ---- Prompt ----
+            prompt = first_scenario_and_choices_prompt.format(
+                system_rules=json.dumps(SYSTEM_RULES),
+                context=context_text,
+                year=int(session.get("year", 2075)),
+                faction=session["faction"],
+                citations=""
+            )
 
-        # Kick off async (returns S3 OutputLocation)
-        output_location = start_generation(prompt, max_new_tokens=200, temperature=0.7)
-        print(f"[ScenarioView] pin={pin} output_location={output_location}")
+            # ---- Generate synchronously (realtime endpoint) ----
+            raw = generate_json(prompt, max_new_tokens=180, temperature=0.7)
 
+            # ---- Normalize + persist (id=1) ----
+            new_id = 1
+            year = int(session.get("year", 2075))
+            scenario = _normalize_scenario(raw, year, new_id)
+            persisted = add_first_scenario_if_absent(pin, scenario)
 
-        # Background worker: wait, normalize, persist
-        def _worker(pin_local: str, out_loc: str, base_year: int):
-            print(f"[ScenarioView.worker] START pin={pin_local}")
-            try:
-                raw = collect_generation(out_loc)
-                print(f"[ScenarioView.worker] COLLECTED pin={pin_local} got={'dict' if isinstance(raw, dict) else 'str'}")
-                new_id = int(uuid.uuid4().int % 10_000_000)
-                scenario = _normalize_scenario(raw, base_year, new_id)
-                add_first_scenario_if_absent(pin_local, scenario)
-                print(f"[ScenarioView.worker] PERSISTED pin={pin_local} scenario_id={new_id}")
-            except Exception as e:
-                import traceback; traceback.print_exc()
-                print(f"[ScenarioView.worker] ERROR pin={pin_local}: {type(e).__name__}: {e}")
+            print(f"[ScenarioView] pin={pin} PERSISTED first scenario id={persisted.get('id')}")
+            return Response(persisted, status=200)
 
-        threading.Thread(target=_worker, args=(pin, output_location, int(session.get("year", 2075))), daemon=True).start()
-
-        return Response({"pending": True}, status=status.HTTP_202_ACCEPTED)
+        except Exception as e:
+            import traceback; traceback.print_exc()
+            return Response({"error": str(e)}, status=502)
 
 class NextScenarioView(APIView):
     """
     POST /api/session/{pin}/scenario/next/
-    Begin generation of the NEXT scenario based on previous chosen outcome (non-blocking).
-    Returns 202 {pending:true} and the UI should poll /scenario/current/.
+    Create the NEXT scenario synchronously based on the previously chosen outcome.
+    - Requires previous scenario to be finalized (has 'chosen').
+    - Persists immediately and returns the new scenario (200).
+    Frontend can still ignore the body and poll /scenario/current/.
     """
     def post(self, request, pin):
         try:
@@ -368,24 +368,29 @@ class NextScenarioView(APIView):
             if not scenarios:
                 return Response({"error": "No previous scenario exists. Call /scenario/ first."}, status=409)
 
-            # Use prev_id if provided, else last
+            # Pick the driving "previous" scenario (explicit id or last)
             prev = next((s for s in scenarios if int(s.get("id", 0)) == prev_id), scenarios[-1])
+
             if prev.get("chosen") is None:
                 return Response({"error": "Previous scenario not finalized (no winner)."}, status=409)
 
+            # Resolve the chosen choice text
             chosen_text = next(
                 (c.get("text") for c in prev.get("choices", []) if int(c.get("id")) == int(prev["chosen"])),
                 None
             )
-            new_year = int(session.get("year", 2075)) + 1
-            expected_new_id = max(int(s.get("id", 0)) for s in scenarios) + 1
 
-            # light RAG for context (OK as-is)
+            # Determine the next scenario id + year
+            new_year = int(session.get("year", 2075)) + 1
+            expected_new_id = (max(int(s.get("id", 0)) for s in scenarios) + 1) if scenarios else 1
+
+            # ---- RAG context for continuation ----
             docs = run_rag_query(
                 query=f"{prev.get('text','')} consequence {chosen_text} faction:{session.get('faction')} year:{new_year}"
             ) or []
             context_text = "\n\n".join([getattr(d, "page_content", str(d)) for d in docs])
 
+            # ---- Prompt for next year ----
             prompt = next_scenario_and_choices_prompt.format(
                 system_rules=json.dumps(SYSTEM_RULES),
                 context=context_text,
@@ -395,57 +400,22 @@ class NextScenarioView(APIView):
                 citations=""
             )
 
-            # Kick async on SageMaker
-            output_location = start_generation(prompt, max_new_tokens=180, temperature=0.65)
-            print(f"[NextScenarioView] pin={pin} expected_id={expected_new_id} out={output_location}")
+            # ---- Generate synchronously ----
+            raw = generate_json(prompt, max_new_tokens=180, temperature=0.65)
 
-            def _worker(pin_local: str, out_loc: str, year_val: int, new_id: int):
-                print(f"[NextScenarioView.worker] START pin={pin_local} expected_id={new_id} year={year_val}")
-                try:
-                    # 1) Try async collect with a bigger timeout (e.g., 420s)
-                    raw = collect_generation(out_loc, timeout_s=420)  # <-- needs collect_generation to accept timeout
-                    print(f"[NextScenarioView.worker] COLLECTED type={type(raw).__name__}")
-                except TimeoutError as te:
-                    # 2) Fallback: do a direct async-invoke path (same prompt) and parse it here.
-                    print(f"[NextScenarioView.worker] TIMEOUT: {te} -> falling back to direct invoke")
-                    raw = generate_json(prompt, max_new_tokens=180, temperature=0.65)  # returns dict or {"raw_text": ...}
-                except Exception as e:
-                    import traceback; traceback.print_exc()
-                    print(f"[NextScenarioView.worker] ERROR collect: {type(e).__name__}: {e}")
-                    return  # nothing to persist
+            # ---- Normalize + persist (idempotent txn) ----
+            scenario = _normalize_scenario(raw, new_year, expected_new_id)
+            persisted = add_next_scenario_if_absent(pin, expected_new_id, scenario, new_year)
 
-                # robust parse to the normalized schema your frontend expects
-                if isinstance(raw, dict):
-                    parsed = raw
-                else:
-                    from game.futureofmemory.services.llm_service import _extract_json
-                    parsed = _extract_json(raw)
-                    if not parsed:
-                        try:
-                            parsed = json.loads(raw) if raw.strip().startswith("{") else {"raw_text": raw}
-                        except Exception:
-                            parsed = {"raw_text": raw}
+            print(f"[NextScenarioView] pin={pin} PERSISTED next scenario id={persisted.get('id')} year={persisted.get('year')}")
+            return Response(persisted, status=200)
 
-                scenario = _normalize_scenario(parsed, year_val, new_id)
-
-                try:
-                    persisted = add_next_scenario_if_absent(pin_local, new_id, scenario, year_val)
-                    print(f"[NextScenarioView.worker] PERSISTED id={persisted.get('id')}")
-                except Exception as e:
-                    import traceback; traceback.print_exc()
-                    print(f"[NextScenarioView.worker] ERROR persist: {type(e).__name__}: {e}")
-
-            threading.Thread(
-                target=_worker, args=(pin, output_location, new_year, expected_new_id), daemon=True
-            ).start()
-
-            return Response({"pending": True}, status=status.HTTP_202_ACCEPTED)
-
+        except ValueError as ve:
+            return Response({"error": str(ve)}, status=400)
         except Exception as e:
-            return Response(
-                {"error": "Next scenario generation failed", "details": str(e)},
-                status=status.HTTP_502_BAD_GATEWAY
-            )
+            import traceback; traceback.print_exc()
+            return Response({"error": "Next scenario generation failed", "details": str(e)}, status=502)
+
 class CurrentScenarioView(APIView):
     """
     GET /api/session/{pin}/scenario/current/
