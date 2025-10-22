@@ -6,9 +6,6 @@ import {
   getCurrentScenario,
 } from '../api/futureMemoryApi.js';
 
-//
-// === Loading Overlay ===
-//
 const FMLoading = (() => {
   const el = () => document.getElementById('fm-loading');
   const textEl = () => document.getElementById('fm-loading-text');
@@ -66,12 +63,10 @@ let pin = null;
 let stepIndex = 0;
 let scenarioId = null;
 
-// Record the options for this round, for the "Final Choice"
 let lastChoicesMap = Object.create(null);
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-// Year
 const yearOf = (i) => START_YEAR + i;
 const setProgress = (i) => {
   progressEl.textContent = `YEAR ${yearOf(i)}`;
@@ -101,7 +96,6 @@ async function submitVoteAndPoll({pin, scenarioId, choice, onTick, onDone}) {
   }, intervalMs);
 }
 
-// Loading
 function renderOptions(choices) {
   optionsUl.innerHTML = '';
   (choices || []).slice(0, 3).forEach((c, idx) => {
@@ -119,7 +113,6 @@ function renderOptions(choices) {
   });
 }
 
-// Enter the loading state
 const setLoadingUI = (i) => {
   FMLoading.show('ENTERING 2075...');
   scenarioEl.textContent = 'Fetching scenario from server...';
@@ -139,7 +132,6 @@ function getPinFromUrl() {
 
 const letters = ['A', 'B', 'C'];
 
-//  Render the scene and options returned by the server
 function renderScenarioAndChoices(s) {
   scenarioId = s?.id ?? s?.scenarioId ?? null;
   const text = s?.text ?? s?.content ?? 'No scenario text.';
@@ -172,13 +164,44 @@ function renderScenarioAndChoices(s) {
   });
 }
 
+function showGameFinished() {
+  setProgress(TOTAL_STEPS - 1);
+
+  const overlay = document.createElement('div');
+  overlay.id = 'game-finished-overlay';
+  overlay.innerHTML = `
+    <div class="fm-card game-finish-card">
+      <p class="finish-title">The world has reached its end of memory</p>
+      <button class="option" id="returnHomeBtn">Return to Home</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  requestAnimationFrame(() => overlay.classList.add('visible'));
+
+  document.getElementById('returnHomeBtn').onclick = () => {
+    window.location.href = '../../index.html';
+  };
+}
+
+function showFinalYearScene(s) {
+  const finalYear = START_YEAR + TOTAL_STEPS;
+  const text = s?.text ?? s?.content ?? 'No scenario text.';
+  scenarioId = s?.id ?? s?.scenarioId ?? null;
+
+  document.body.classList.add('final-year');
+
+  progressEl.textContent = `YEAR ${s?.year ?? finalYear}`;
+  scenarioEl.textContent = text;
+
+  optionsUl.innerHTML = '';
+}
+
 async function loadStep(i) {
   stepIndex = i;
 
-  if (stepIndex >= TOTAL_STEPS) {
-    setProgress(TOTAL_STEPS - 1);
-    scenarioEl.textContent = 'The decade concludes. (End)';
-    renderOptions([]);
+  if (stepIndex > TOTAL_STEPS) {
+    showGameFinished();
     return;
   }
 
@@ -263,11 +286,18 @@ optionsUl.addEventListener('click', (ev) => {
 
       await sleep(4000);
 
-      // —— Next year——
       FMLoading.setText('Fate is not given — it is constructed...');
       try {
         const next = await getNextScenario({pin, previousScenarioId: scenarioId});
         stepIndex += 1;
+
+        if (stepIndex === TOTAL_STEPS) {
+          showFinalYearScene(next);
+          FMLoading.hide();
+          setTimeout(() => showGameFinished(), 10000);
+          return;
+        }
+
         renderScenarioAndChoices(next);
       } catch (e) {
         console.error('getNextScenario failed', e);
