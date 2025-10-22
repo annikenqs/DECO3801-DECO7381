@@ -97,14 +97,21 @@ def increment_choice_vote_transaction(transaction: firestore.Transaction, pin: s
     if not found:
         raise ValueError(f"Choice {choice_id} not found in scenario {scenario_id}.")
     
+    # update the scenario in the list
     scenarios[idx] = scenario
+    # update the document with the new scenarios list
     transaction.update(doc_ref, {"scenarios": scenarios})
 
+    # update tally as well
     tally = {str(ch.get("id")): int(ch.get("votes", 0)) for ch in scenario.get("choices", [])}
+
+    # return the pin, scenario id, tally and choices
     return {"pin": pin, "scenarioId": scenario_id, "votes": tally, "choices": scenario.get("choices", [])}
 
+# increment the choice vote
 def increment_choice_vote(pin: str, scenario_id: int, choice_id: int) -> dict:
     tx = db.transaction()
+    # use the transaction to increment the choice vote
     return increment_choice_vote_transaction(tx, pin, scenario_id, choice_id)
 
 # allocates a pin
@@ -133,9 +140,14 @@ def create_session(faction: str, year: int, status: str, pin: int, numberofplaye
 
 # helpers - gets the pin
 def get_pin(doc_id: str) -> str:
+
+    # collects the pin from the document id
     doc_ref = db.collection("games").document(doc_id)
+
+    # obtains the pin itself
     snapshot = doc_ref.get()
 
+    # if the snapshot doesn't exist, raise error
     if not snapshot.exists:
         return ValueError("Session ID doesn't exist")
 
@@ -157,10 +169,9 @@ def update_pin(doc_id: str) -> str:
     doc_ref.update({"pin":new_pin})
     return new_pin
 
+# adds a player to an existing session
 def join_session(pin: int):
-    """
-    Adds a player to an existing session if conditions are met.
-    """
+
     session = get_session_by_pin(pin)
 
     if not session:
@@ -179,22 +190,23 @@ def join_session(pin: int):
     session["numberofplayers"] = number_of_players + 1
     return session
 
+# retrieves a session by its pin
 def get_session_by_pin(pin: int):
-    """Gets a session by its PIN."""
     doc = ref.document(pin).get()
     if doc.exists:
         return doc.to_dict()
     return None
 
+# gets the number of players in a session
 def get_player_count(pin: int):
-    """Returns the number of players in a session."""
     session = get_session_by_pin(pin)
     if not session:
         raise ValueError("Invalid PIN.")
     return session.get("numberofplayers", 0)
 
+# updates the game state of a session
 def update_game_state(pin: int, new_state: str):
-    """Updates the status of a game session (e.g., from 'lobby' to 'in-progress')."""
+    
     session = get_session_by_pin(pin)
     if not session:
         raise ValueError("Invalid PIN.")
@@ -229,26 +241,32 @@ def add_scenario(pin: int, scenario: dict):
             "text": c.get("text"),
             "votes": int(c.get("votes", 0))  # default 0
         })
+    
+    # update scenario choices
     scenario["choices"] = norm_choices
     
+    # append scenario
     scenarios = session.get("scenarios", [])
     scenarios.append(scenario)
+
+    # update in firestore
     ref.document(pin).update({"scenarios": scenarios})
 
+# updates the entire scenarios list for a session
 def update_scenarios(pin: int, scenarios: list):
-    """Updates the entire scenarios list for a session."""
+    
     ref.document(pin).update({"scenarios": scenarios})
 
+# updates the year for a session
 def update_year(pin: int, new_year: int):
-    """Updates the year for a session."""
+    
     ref.document(pin).update({"year": new_year})
 
-
+"""Handles voting for factions within a game session.
+    Returns the updated vote counts and whether all players have voted.
+"""
 def vote_for_faction(pin: str, faction: str):
-    """
-    Records a player's vote for a faction.
-    Returns updated vote counts and whether all players have voted.
-    """
+
     if faction not in ["rightists", "resourceists", "responsibilists"]:
         raise ValueError("Invalid faction.")
 
@@ -285,6 +303,8 @@ def vote_for_faction(pin: str, faction: str):
     }
 
 
+""" Finalizes the faction vote once all players have voted.
+    Determines the winning faction and updates the session."""
 def finalize_faction_vote(pin: str):
     session = get_session_by_pin(pin)
     if not session:
@@ -312,7 +332,7 @@ def finalize_faction_vote(pin: str):
         "wasTie": len(winning_factions) > 1
     }
 
-
+"""Retrieves the faction votes and voting status for a session."""
 def get_faction_votes(pin: str):
     session = get_session_by_pin(pin)
     if not session:
@@ -330,8 +350,9 @@ def get_faction_votes(pin: str):
         "faction": session.get("faction") if all_voted else None
     }
 
+### Helper to normalize scenario choices for storage.
 def _normalize_choices_for_storage(raw_choices: list) -> list:
-    """Ensure numeric ids (1..3) and integer votes on each choice."""
+    
     norm = []
     for idx, ch in enumerate((raw_choices or [])[:3], start=1):
         cid = ch.get("id", idx)
@@ -357,12 +378,10 @@ def _normalize_choices_for_storage(raw_choices: list) -> list:
         ]
     return norm
 
-
+### Atomically create the first scenario if none exists; otherwise return the existing first scenario.
 @firestore.transactional
 def add_first_scenario_if_absent_txn(transaction: firestore.Transaction, pin: str, scenario: dict) -> dict:
-    """
-    Atomically create the first scenario if none exists; otherwise return the existing first scenario.
-    """
+
     doc_ref = ref.document(pin)
     snap = doc_ref.get(transaction=transaction)
     if not snap.exists:
@@ -399,6 +418,10 @@ def add_first_scenario_if_absent(pin: str, scenario: dict) -> dict:
     tx = db.transaction()
     return add_first_scenario_if_absent_txn(tx, pin, scenario)
 
+### Atomically append the next scenario with id=expected_new_id if missing.
+### - Returns the existing scenario if it already exists (idempotent).
+### - Validates that previous scenario is finalized (has "chosen").
+### - Updates session.year together with the append.
 @firestore.transactional
 def add_next_scenario_if_absent_txn(
     transaction: firestore.Transaction,
@@ -407,12 +430,7 @@ def add_next_scenario_if_absent_txn(
     candidate: dict,
     new_year: int,
 ) -> dict:
-    """
-    Atomically append the next scenario with id=expected_new_id if missing.
-    - Returns the existing scenario if it already exists (idempotent).
-    - Validates that previous scenario is finalized (has "chosen").
-    - Updates session.year together with the append.
-    """
+
     doc_ref = ref.document(pin)
     snap = doc_ref.get(transaction=transaction)
     if not snap.exists:
@@ -451,7 +469,7 @@ def add_next_scenario_if_absent_txn(
 
     return scenario_to_write
 
-
+### Adds a new scenario if absent
 def add_next_scenario_if_absent(pin: str, expected_new_id: int, candidate: dict, new_year: int) -> dict:
     tx = db.transaction()
     return add_next_scenario_if_absent_txn(tx, pin, expected_new_id, candidate, new_year)
