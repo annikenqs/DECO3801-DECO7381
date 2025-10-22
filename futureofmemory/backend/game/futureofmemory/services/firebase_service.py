@@ -18,80 +18,75 @@ ref = db.collection('games')
 def integer_to_string(number: int) -> str:
     return f"{number:06d}"
 
-# increments pin untill overflow
+# increments pin untill overflow, then resets to 0
 def increment_pin(number: int) -> int:
     return 0 if number >= 999999 else number + 1
 
-# uses Firestore's Transaction to maintain last pin
+"""
+    Allocates a new unique pin for a game session.
+    Steps involved:
 
-# @firestore.transactional: ensures the function can be run safely as a Firestore Transaction
+    1. sets up a 'pin counter' object and names it as counter reference
+    2. obtains the reference itself
+    3. obtains the last snapshot if it exists (which is the pin)
+    4. increments and sets the pin to a string
+    5. sets the transaction as the pin counter object, the last value (which is the new value), and a merge command which enables merging
+    6. return the new pin
+"""
 @firestore.transactional
 def allocate_pin_transaction(transaction: firestore.Transaction) -> str:
 
-    # uses a pin counter document
 
-    # 1. sets up a 'pin counter' object and names it as counter reference
-    # 2. obtains the reference itself
-    # 3. obtains the last snapshot if it exists (which is the pin)
-    # 4. increments and sets the pin to a string
-    # 5. sets the transaction as:
-    # 1. from the pin-counter reference
-    # the last value is the new value
-    # and merge this
-
-    # 1. sets up a 'pin counter' object and names it as counter reference
     counter_reference = db.collection("meta").document("pin-counter")
-    # 2. obtains the reference itself
     snap = counter_reference.get(transaction=transaction)
-
-    # gets the last snapshot if it exists, which is the pin, (otherwise makes a last snapshot of -1, 
-    # which is incremented to 000000)
     last = snap.get("last") if snap.exists else -1
 
-    # increment and set pin to string
     new_val = increment_pin(last)
     new_pin = integer_to_string(new_val)
 
-    # sets the transaction as:
-    # the pin counter object, the last value (which is the new value), and a merge command which enables merging
     transaction.set(counter_reference, {"last": new_val}, merge=True)
-    # return the new pin
     return new_pin
 
-# increments the vote whenever a player votes
 @firestore.transactional
 def increment_choice_vote_transaction(transaction: firestore.Transaction, pin: str, scenario_id: int, choice_id: int) -> dict:
-    # obtains the pin
+    """
+        Increments the vote count for a specific choice within a scenario atomically.
+        Steps involved:
+        1. obtains the pin
+        2. checks if the pin is valid or not
+        3. converts the reference to a dictionary
+        4. obtains the scenarios
+        5. searches for the scenario id
+        6. Increments the right choice
+        7. update the scenario in the list
+        8. update the document with the new scenarios list
+        9. update tally as well
+        10. return the pin, scenario id, tally and choices
+
+    """
     doc_ref = ref.document(pin)
     snap = doc_ref.get(transaction=transaction)
 
-    # checks if the pin is valid or not
     if not snap.exists:
         raise ValueError("Error: Invalid PIN!")
     
-    # converts the reference to a dictionary
     data = snap.to_dict() or {}
-    # obtains the scenarios
     scenarios = data.get("scenarios", [])
-
-    # searches for the scenario id
     idx = next((i for i, s in enumerate(scenarios) if s.get("id") == scenario_id), None)
-    # raise error if not found
+
     if idx is None:
         raise ValueError(f"Scenario {scenario_id} not found.")
 
     scenario = scenarios[idx]
 
-
-    # increment the right choice
+    # set found to false initially, since we haven't found a matching id yet
     found = False
 
-    # for each choice:
+    # for each choice, check if the id matches and increment votes accordingly
     for ch in scenario.get("choices", []):
-        # increment the number of votes if the id matches
         if ch.get("id") == choice_id:
             ch["votes"] = int(ch.get("votes", 0)) + 1
-            # and turn found to true since we have found a matching id
+            # then found is true and so we exit the loop
             found = True
             break
     if not found:
@@ -99,21 +94,25 @@ def increment_choice_vote_transaction(transaction: firestore.Transaction, pin: s
     
     scenarios[idx] = scenario
     transaction.update(doc_ref, {"scenarios": scenarios})
-
     tally = {str(ch.get("id")): int(ch.get("votes", 0)) for ch in scenario.get("choices", [])}
+
     return {"pin": pin, "scenarioId": scenario_id, "votes": tally, "choices": scenario.get("choices", [])}
 
 def increment_choice_vote(pin: str, scenario_id: int, choice_id: int) -> dict:
+    """Increments the vote count for a specific choice within a scenario."""
     tx = db.transaction()
+    # use the transaction to increment the choice vote
     return increment_choice_vote_transaction(tx, pin, scenario_id, choice_id)
 
-# allocates a pin
+
 def allocate_pin() -> str:
+    """Allocates a new unique pin for a game session."""
     tx = db.transaction()
     return allocate_pin_transaction(tx)
 
-# creates a new session
+
 def create_session(faction: str, year: int, status: str, pin: int, numberofplayers: int):
+    """Creates a new game session with the given parameters."""
     doc_ref = db.collection("games").document(pin)
     doc_ref.set({
         "pin": pin,
@@ -131,16 +130,19 @@ def create_session(faction: str, year: int, status: str, pin: int, numberofplaye
     })
     return {"pin": pin, "faction": faction, "year": year}
 
-# helpers - gets the pin
+
 def get_pin(doc_id: str) -> str:
+    """Helper function that retrieves the pin for a given document id."""
+
     doc_ref = db.collection("games").document(doc_id)
     snapshot = doc_ref.get()
 
     if not snapshot.exists:
         return ValueError("Session ID doesn't exist")
 
-# update pin
+
 def update_pin(doc_id: str) -> str:
+    """Helper function that updates the pin for a given document id."""
     doc_ref = db.collection("games").document(doc_id)
     snapshot = doc_ref.get()
 
@@ -157,10 +159,10 @@ def update_pin(doc_id: str) -> str:
     doc_ref.update({"pin":new_pin})
     return new_pin
 
+
 def join_session(pin: int):
-    """
-    Adds a player to an existing session if conditions are met.
-    """
+    """Allows a player to join a game session using its pin."""
+
     session = get_session_by_pin(pin)
 
     if not session:
@@ -179,22 +181,24 @@ def join_session(pin: int):
     session["numberofplayers"] = number_of_players + 1
     return session
 
+
 def get_session_by_pin(pin: int):
-    """Gets a session by its PIN."""
+    """Retrieves a game session by its pin."""
     doc = ref.document(pin).get()
     if doc.exists:
         return doc.to_dict()
     return None
 
+
 def get_player_count(pin: int):
-    """Returns the number of players in a session."""
+    """Retrieves the number of players in a game session."""
     session = get_session_by_pin(pin)
     if not session:
         raise ValueError("Invalid PIN.")
     return session.get("numberofplayers", 0)
 
 def update_game_state(pin: int, new_state: str):
-    """Updates the status of a game session (e.g., from 'lobby' to 'in-progress')."""
+    """Updates the game state for a session."""
     session = get_session_by_pin(pin)
     if not session:
         raise ValueError("Invalid PIN.")
@@ -205,11 +209,12 @@ def update_game_state(pin: int, new_state: str):
     ref.document(pin).update({"status": new_state})
     return {"pin": pin, "status": new_state}
 
-# picks the winner from the choices made
+
 def pick_winner_from_choices(choices):
+    """Picks the winning choice based on votes, with tie-breaking by lowest id."""
     return max(choices, key=lambda ch: (int(ch.get("votes", 0)), -int(ch.get("id", 0))))
 
-# The original get_session is now get_session_by_pin
+
 get_session = get_session_by_pin
 
 def add_scenario(pin: int, scenario: dict):
@@ -218,7 +223,6 @@ def add_scenario(pin: int, scenario: dict):
     if not session:
         raise ValueError("Invalid PIN.")
     
-    # ensures the scenario's year exists
     scenario.setdefault("year", session.get("year"))
 
     # ensure votes field exists on each choice
@@ -229,31 +233,33 @@ def add_scenario(pin: int, scenario: dict):
             "text": c.get("text"),
             "votes": int(c.get("votes", 0))  # default 0
         })
+    
+    # update scenario choices
     scenario["choices"] = norm_choices
     
     scenarios = session.get("scenarios", [])
     scenarios.append(scenario)
+
     ref.document(pin).update({"scenarios": scenarios})
 
+
 def update_scenarios(pin: int, scenarios: list):
-    """Updates the entire scenarios list for a session."""
+    """Updates the scenarios for a session."""
     ref.document(pin).update({"scenarios": scenarios})
 
 def update_year(pin: int, new_year: int):
     """Updates the year for a session."""
     ref.document(pin).update({"year": new_year})
 
-
 def vote_for_faction(pin: str, faction: str):
-    """
-    Records a player's vote for a faction.
-    Returns updated vote counts and whether all players have voted.
-    """
+    """Records a vote for a faction in a session."""
+
     if faction not in ["rightists", "resourceists", "responsibilists"]:
         raise ValueError("Invalid faction.")
-
+    
     doc_ref = ref.document(pin)
     snap = doc_ref.get()
+
     if not snap.exists:
         raise ValueError("Invalid PIN.")
 
@@ -262,6 +268,7 @@ def vote_for_faction(pin: str, faction: str):
     total_players = int(data.get("numberofplayers", 0))
     voted_count = int(data.get("factionVotedCount", 0))
 
+    # if all players have already voted, return the existing votes and set allVoted to true
     if total_players > 0 and voted_count >= total_players:
         return {
             "factionVotes": data.get("factionVotes", {}),
@@ -273,6 +280,7 @@ def vote_for_faction(pin: str, faction: str):
         "factionVotedCount": firestore.Increment(1)
     })
 
+    # re-fetch the document to get updated votes
     snap = doc_ref.get()
     data = snap.to_dict() or {}
     votes = data.get("factionVotes", {})
@@ -284,8 +292,9 @@ def vote_for_faction(pin: str, faction: str):
         "allVoted": all_voted
     }
 
-
 def finalize_faction_vote(pin: str):
+    """Finalizes the faction vote for a session."""
+
     session = get_session_by_pin(pin)
     if not session:
         raise ValueError("Invalid PIN.")
@@ -294,7 +303,7 @@ def finalize_faction_vote(pin: str):
 
     if not faction_votes:
         raise ValueError("No votes recorded.")
-
+    
     max_votes = max(faction_votes.values())
 
     # get all factions with max votes (to handle ties)
@@ -303,7 +312,6 @@ def finalize_faction_vote(pin: str):
     # randomly select in case of tie
     chosen_faction = random.choice(winning_factions)
 
-    # update session
     ref.document(pin).update({"faction": chosen_faction})
 
     return {
@@ -314,10 +322,11 @@ def finalize_faction_vote(pin: str):
 
 
 def get_faction_votes(pin: str):
+    """Retrieves the faction votes for a session."""
     session = get_session_by_pin(pin)
     if not session:
         raise ValueError("Invalid PIN.")
-
+    
     total_players = int(session.get("numberofplayers", 0))
     voted_players = int(session.get("factionVotedCount", 0))
     all_voted = (total_players > 0 and voted_players >= total_players)
@@ -330,24 +339,33 @@ def get_faction_votes(pin: str):
         "faction": session.get("faction") if all_voted else None
     }
 
+
 def _normalize_choices_for_storage(raw_choices: list) -> list:
-    """Ensure numeric ids (1..3) and integer votes on each choice."""
+    """Normalizes raw choices into a standard format for storage."""
+
     norm = []
+    # for each choice in the raw choices (up to 3):
     for idx, ch in enumerate((raw_choices or [])[:3], start=1):
+        # obtain the choice id
         cid = ch.get("id", idx)
+
         if isinstance(cid, str) and cid.upper() in ("A", "B", "C"):
             cid = {"A": 1, "B": 2, "C": 3}[cid.upper()]
+        # try to convert the cid to an integer, otherwise use the index
         try:
             cid = int(cid)
         except Exception:
             cid = idx
 
+        # obtain the choice text
         ctext = ch.get("text") or ch.get("label") or f"Option {cid}"
+
         norm.append({
             "id": cid,
             "text": ctext,
             "votes": int(ch.get("votes", 0)),
         })
+
     # if empty, provide a fallback set
     if not norm:
         norm = [
@@ -355,29 +373,32 @@ def _normalize_choices_for_storage(raw_choices: list) -> list:
             {"id": 2, "text": "Fallback choice B", "votes": 0},
             {"id": 3, "text": "Fallback choice C", "votes": 0},
         ]
+
     return norm
 
 
 @firestore.transactional
 def add_first_scenario_if_absent_txn(transaction: firestore.Transaction, pin: str, scenario: dict) -> dict:
-    """
-    Atomically create the first scenario if none exists; otherwise return the existing first scenario.
-    """
+    """Atomically adds the first scenario if none exist."""
+
     doc_ref = ref.document(pin)
     snap = doc_ref.get(transaction=transaction)
+
     if not snap.exists:
         raise ValueError("Invalid PIN.")
 
     data = snap.to_dict() or {}
     scenarios = data.get("scenarios", [])
     if scenarios:
-        # Another request already created it
         return scenarios[0]
 
+    # obtains the year from the scenario or defaults to 2075
     year = int(data.get("year", 2075))
 
-    # Normalize choices and assemble the scenario we will write
+    # Normalize choices and assemble the scenario to be written
     normalized_choices = _normalize_choices_for_storage(scenario.get("choices", []))
+
+    # define the scenario to write
     scenario_to_write = {
         "id": 1,
         "text": scenario.get("text") or scenario.get("scenario_text") or "No scenario generated (fallback)",
@@ -394,8 +415,9 @@ def add_first_scenario_if_absent_txn(transaction: firestore.Transaction, pin: st
     return scenario_to_write
 
 
+
 def add_first_scenario_if_absent(pin: str, scenario: dict) -> dict:
-    """Public wrapper that runs the transactional creator."""
+    """Adds the first scenario if none exist."""
     tx = db.transaction()
     return add_first_scenario_if_absent_txn(tx, pin, scenario)
 
@@ -407,8 +429,8 @@ def add_next_scenario_if_absent_txn(
     candidate: dict,
     new_year: int,
 ) -> dict:
-    """
-    Atomically append the next scenario with id=expected_new_id if missing.
+
+    """Atomically appends the next scenario with id=expected_new_id if missing.
     - Returns the existing scenario if it already exists (idempotent).
     - Validates that previous scenario is finalized (has "chosen").
     - Updates session.year together with the append.
@@ -421,7 +443,7 @@ def add_next_scenario_if_absent_txn(
     data = snap.to_dict() or {}
     scenarios = data.get("scenarios", [])
 
-    # If it already exists, return it (idempotent)
+    # If a scebarui already exists, return it 
     existing = next((s for s in scenarios if int(s.get("id", 0)) == int(expected_new_id)), None)
     if existing:
         return existing
@@ -436,6 +458,7 @@ def add_next_scenario_if_absent_txn(
     choices = _normalize_choices_for_storage(candidate.get("choices", []))
     text = candidate.get("text") or candidate.get("scenario_text") or "No scenario generated (fallback)"
 
+    # Define the scenario to write 
     scenario_to_write = {
         "id": int(expected_new_id),
         "text": text,
@@ -451,8 +474,8 @@ def add_next_scenario_if_absent_txn(
 
     return scenario_to_write
 
-
 def add_next_scenario_if_absent(pin: str, expected_new_id: int, candidate: dict, new_year: int) -> dict:
+    """Appends the next scenario with id=expected_new_id if missing."""
     tx = db.transaction()
     return add_next_scenario_if_absent_txn(tx, pin, expected_new_id, candidate, new_year)
 

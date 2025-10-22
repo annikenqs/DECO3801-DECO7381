@@ -3,13 +3,14 @@ from rest_framework.test import APIClient
 from rest_framework import status
 from unittest.mock import patch
 
-
+### Base class for API tests.
 class BaseAPITest(SimpleTestCase):
     def setUp(self):
         self.client = APIClient()
         self.test_pin = "123456"
 
 
+### Tests for the Session Creation API endpoint.
 class SessionAPITests(BaseAPITest):
     
     @patch("game.futureofmemory.api.views.create_session")
@@ -229,7 +230,7 @@ class JoinSessionAPITests(BaseAPITest):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("error", response.data)
 
-
+### Tests for the Faction Vote API endpoint.
 class FactionVoteAPITests(BaseAPITest):
         
     @patch("game.futureofmemory.api.views.get_session_by_pin")
@@ -272,7 +273,7 @@ class FactionVoteAPITests(BaseAPITest):
         
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
-
+### Tests for the Faction Result API endpoint.
 class FactionResultAPITests(BaseAPITest):
         
     @patch("game.futureofmemory.api.views.get_session_by_pin")
@@ -299,7 +300,7 @@ class FactionResultAPITests(BaseAPITest):
         self.assertTrue(response.data["finalized"])
         self.assertEqual(response.data["faction"], "rightists")
 
-
+### Tests for the Scenario API endpoint.
 class ScenarioAPITests(BaseAPITest):
         
     @patch("game.futureofmemory.api.views.get_session_by_pin")
@@ -351,7 +352,7 @@ class ScenarioAPITests(BaseAPITest):
         
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
-
+### Tests for the Voting Logic API endpoint.
 class VotingLogicAPITests(BaseAPITest):
         
     @patch("game.futureofmemory.api.views.get_session_by_pin")
@@ -375,7 +376,7 @@ class VotingLogicAPITests(BaseAPITest):
         self.assertEqual(response.data["pin"], self.test_pin)
         self.assertIn("tally", response.data)
 
-
+### Tests for the Player Vote Check API endpoint.
 class PlayerVoteCheckAPITests(BaseAPITest):
         
     @patch("game.futureofmemory.api.views.get_session_by_pin")
@@ -399,7 +400,7 @@ class PlayerVoteCheckAPITests(BaseAPITest):
         self.assertFalse(response.data["persisted"])
         self.assertEqual(response.data["total_votes"], 1)
 
-
+### Tests for the Game State API endpoint.
 class GameStateAPITests(BaseAPITest):
         
     @patch("game.futureofmemory.api.views.get_session_by_pin")
@@ -427,7 +428,7 @@ class GameStateAPITests(BaseAPITest):
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
-
+### Tests for the Player Count API endpoint.
 class PlayerCountAPITests(BaseAPITest):
         
     @patch("game.futureofmemory.api.views.get_player_count")
@@ -439,7 +440,7 @@ class PlayerCountAPITests(BaseAPITest):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["player_count"], 3)
 
-
+### Integration Tests for complete game flow.
 class IntegrationTests(BaseAPITest):
         
     @patch("game.futureofmemory.api.views.create_session")

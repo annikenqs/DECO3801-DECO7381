@@ -3,7 +3,7 @@ from langchain.chat_models import init_chat_model
 from langchain.prompts import PromptTemplate
 from langchain_google_genai import ChatGoogleGenerativeAI
 
-
+# retrieves LLM
 def get_llm():
     api_key = os.getenv("GOOGLE_API_KEY")
     if not api_key:
@@ -15,7 +15,7 @@ def get_llm():
         api_key=api_key,
     )
 
-
+# defines system rules that the LLM must adhere to
 SYSTEM_RULES = {
     "rules": [
         "Neurotechnology implants have become popular by 2075.",
@@ -34,6 +34,7 @@ SYSTEM_RULES = {
     }
 }
 
+# defines the base prompt template for scenario generation
 BASE_PROMPT = """
 Follow these fixed system rules (do not change them):
 {system_rules}
@@ -69,6 +70,7 @@ first_scenario_and_choices_prompt = PromptTemplate.from_template(
     """
 )
 
+# defines the prompt template for generating the next scenario and choices
 next_scenario_and_choices_prompt = PromptTemplate.from_template(
     BASE_PROMPT + """
     You are the Scenario Writer and choice maker.

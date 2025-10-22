@@ -4,6 +4,7 @@ from langchain_core.documents import Document
 import json
 import re
 
+# import requisite services for querying
 from .embedding_service import get_embeddings
 from .chroma_service import init_chroma, load_documents
 from .llm_service import (
@@ -16,6 +17,7 @@ from .llm_service import (
 vector_store = None
 llm = None
 
+# initialise the RAG
 def init_rag():
     global vector_store, llm
     if vector_store is None:
@@ -28,6 +30,7 @@ def init_rag():
         llm = get_llm()
     return vector_store, llm
 
+# run a RAG query
 def run_rag_query(query: str):
     vs, model = init_rag()
     retriever = vs.as_retriever()
@@ -45,6 +48,7 @@ class State(TypedDict):
     year: int
     faction: str 
 
+# retrieves relevant documents
 def retrieve(state: State):
     vs, _ = init_rag()
 
@@ -68,6 +72,7 @@ def retrieve(state: State):
     retrieved_docs = vs.similarity_search(query, k=6) 
     return {"context": retrieved_docs}
 
+# safely parse model output
 def safe_parse_response(raw: str) -> dict:
     """Try to parse model output into JSON, with fallbacks."""
     cleaned = re.sub(r"^```[a-zA-Z]*\n?", "", raw)  
@@ -87,6 +92,7 @@ def safe_parse_response(raw: str) -> dict:
 
     return parsed
 
+# generates the next scenario
 def generate(state: State):
     vs, llm = init_rag()
     docs_content = "\n\n".join(doc.page_content for doc in state["context"])
@@ -135,10 +141,12 @@ def generate(state: State):
         }
     }
 
+# Build the state graph
 graph_builder = StateGraph(State).add_sequence([retrieve, generate])
 graph_builder.add_edge(START, "retrieve")
 graph = graph_builder.compile()
 
+# runs RAG
 def run_rag(year: int = 2075, scenario=None, choices=None, chosen_choice=None, faction="Unknown", **kwargs):
     state = {
         "year": year,
