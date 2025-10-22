@@ -266,36 +266,45 @@ def update_year(pin: int, new_year: int):
 # Returns the updated vote counts and whether all players have voted.
 def vote_for_faction(pin: str, faction: str):
 
+    # if the faction is invalid, raise error
     if faction not in ["rightists", "resourceists", "responsibilists"]:
         raise ValueError("Invalid faction.")
 
+    # obtains the document reference
     doc_ref = ref.document(pin)
     snap = doc_ref.get()
+
+    # if the snapshot doesn't exist, raise error
     if not snap.exists:
         raise ValueError("Invalid PIN.")
 
     data = snap.to_dict() or {}
 
+    # get the total number of players and the number of votes
     total_players = int(data.get("numberofplayers", 0))
     voted_count = int(data.get("factionVotedCount", 0))
 
+    # if all players have already voted, return the existing votes and set allVoted to true
     if total_players > 0 and voted_count >= total_players:
         return {
             "factionVotes": data.get("factionVotes", {}),
             "allVoted": True
         }
 
+    # update the faction votes atomically
     doc_ref.update({
         f"factionVotes.{faction}": firestore.Increment(1),
         "factionVotedCount": firestore.Increment(1)
     })
 
+    # re-fetch the document to get updated votes
     snap = doc_ref.get()
     data = snap.to_dict() or {}
     votes = data.get("factionVotes", {})
     vc = data.get("factionVotedCount", 0)
     all_voted = (total_players > 0 and vc >= total_players)
 
+    # return the updated votes and whether all players have voted
     return {
         "factionVotes": votes,
         "allVoted": all_voted
@@ -305,15 +314,20 @@ def vote_for_faction(pin: str, faction: str):
 # Finalises the faction vote once all players have voted.
 # Determines the winning faction and updates the session.
 def finalize_faction_vote(pin: str):
+
+    # try to get the session by pin
     session = get_session_by_pin(pin)
     if not session:
         raise ValueError("Invalid PIN.")
     
+    # try to get the faction votes from the current session
     faction_votes = session.get("factionVotes", {})
 
+    # if it doesn't exist, raise error
     if not faction_votes:
         raise ValueError("No votes recorded.")
 
+    # determine the maximum votes received
     max_votes = max(faction_votes.values())
 
     # get all factions with max votes (to handle ties)
@@ -325,6 +339,7 @@ def finalize_faction_vote(pin: str):
     # update session
     ref.document(pin).update({"faction": chosen_faction})
 
+    # return the chosen faction, votes and whether there was a tie
     return {
         "faction": chosen_faction,
         "factionVotes": faction_votes,
@@ -337,10 +352,13 @@ def get_faction_votes(pin: str):
     if not session:
         raise ValueError("Invalid PIN.")
 
+    # get total players and voted players
     total_players = int(session.get("numberofplayers", 0))
     voted_players = int(session.get("factionVotedCount", 0))
+    # calculate if all have voted
     all_voted = (total_players > 0 and voted_players >= total_players)
 
+    # return the votes, total players, voted players, allVoted status, and chosen faction if all voted
     return {
         "factionVotes": session.get("factionVotes", {}),
         "totalPlayers": total_players,
@@ -349,20 +367,28 @@ def get_faction_votes(pin: str):
         "faction": session.get("faction") if all_voted else None
     }
 
-### Helper to normalize scenario choices for storage.
+# Helper to normalize scenario choices for storage
 def _normalize_choices_for_storage(raw_choices: list) -> list:
     
+    # a list that contains normalised choices
     norm = []
+    # for each choice in the raw choices (up to 3):
     for idx, ch in enumerate((raw_choices or [])[:3], start=1):
+        # obtain the choice id
         cid = ch.get("id", idx)
+        # if the choice id is A, B or C, convert to 1, 2, 3 respectively
         if isinstance(cid, str) and cid.upper() in ("A", "B", "C"):
             cid = {"A": 1, "B": 2, "C": 3}[cid.upper()]
+        # try to convert the cid to an integer, otherwise use the index
         try:
             cid = int(cid)
         except Exception:
             cid = idx
 
+        # obtain the choice text
         ctext = ch.get("text") or ch.get("label") or f"Option {cid}"
+
+        # append the normalised choice to the list
         norm.append({
             "id": cid,
             "text": ctext,
@@ -375,13 +401,17 @@ def _normalize_choices_for_storage(raw_choices: list) -> list:
             {"id": 2, "text": "Fallback choice B", "votes": 0},
             {"id": 3, "text": "Fallback choice C", "votes": 0},
         ]
+    # return the normalised choices
     return norm
 
-### Atomically create the first scenario if none exists; otherwise return the existing first scenario.
+# Atomically create the first scenario if none exists; otherwise return the existing first scenario.
 @firestore.transactional
 def add_first_scenario_if_absent_txn(transaction: firestore.Transaction, pin: str, scenario: dict) -> dict:
 
+    # obtains the document reference
     doc_ref = ref.document(pin)
+
+    # obtains the snapshot
     snap = doc_ref.get(transaction=transaction)
     if not snap.exists:
         raise ValueError("Invalid PIN.")
@@ -389,13 +419,15 @@ def add_first_scenario_if_absent_txn(transaction: firestore.Transaction, pin: st
     data = snap.to_dict() or {}
     scenarios = data.get("scenarios", [])
     if scenarios:
-        # Another request already created it
         return scenarios[0]
 
+    # obtains the year from the scenario or defaults to 2075
     year = int(data.get("year", 2075))
 
     # Normalize choices and assemble the scenario we will write
     normalized_choices = _normalize_choices_for_storage(scenario.get("choices", []))
+
+    # define the scenario to write
     scenario_to_write = {
         "id": 1,
         "text": scenario.get("text") or scenario.get("scenario_text") or "No scenario generated (fallback)",
@@ -409,11 +441,13 @@ def add_first_scenario_if_absent_txn(transaction: firestore.Transaction, pin: st
     new_scenarios = scenarios + [scenario_to_write]
     transaction.update(doc_ref, {"scenarios": new_scenarios})
 
+    # return the scenario written
     return scenario_to_write
 
 
+# Public wrapper that runs the transactional creator
 def add_first_scenario_if_absent(pin: str, scenario: dict) -> dict:
-    """Public wrapper that runs the transactional creator."""
+    
     tx = db.transaction()
     return add_first_scenario_if_absent_txn(tx, pin, scenario)
 
@@ -438,7 +472,7 @@ def add_next_scenario_if_absent_txn(
     data = snap.to_dict() or {}
     scenarios = data.get("scenarios", [])
 
-    # If it already exists, return it (idempotent)
+    # If it already exists, return it 
     existing = next((s for s in scenarios if int(s.get("id", 0)) == int(expected_new_id)), None)
     if existing:
         return existing
@@ -453,6 +487,7 @@ def add_next_scenario_if_absent_txn(
     choices = _normalize_choices_for_storage(candidate.get("choices", []))
     text = candidate.get("text") or candidate.get("scenario_text") or "No scenario generated (fallback)"
 
+    # Define the scenario to write 
     scenario_to_write = {
         "id": int(expected_new_id),
         "text": text,
@@ -468,7 +503,7 @@ def add_next_scenario_if_absent_txn(
 
     return scenario_to_write
 
-### Adds a new scenario if absent
+# Adds a new scenario if absent
 def add_next_scenario_if_absent(pin: str, expected_new_id: int, candidate: dict, new_year: int) -> dict:
     tx = db.transaction()
     return add_next_scenario_if_absent_txn(tx, pin, expected_new_id, candidate, new_year)

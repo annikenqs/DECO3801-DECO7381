@@ -13,7 +13,7 @@ from game.futureofmemory.services.firebase_service import (
     increment_choice_vote, pick_winner_from_choices, add_first_scenario_if_absent, add_next_scenario_if_absent 
 )
 
-""" Creates a new game session in Firebase. """        
+# Creates a new game session     
 class SessionView(APIView):
     def post(self, request):
 
@@ -37,7 +37,7 @@ class SessionView(APIView):
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-""" Allows a player to join an existing session using PIN. """
+# Allows a player to join a session using a PIN
 class JoinSessionView(APIView):
 
     def post(self, request):
