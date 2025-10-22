@@ -262,9 +262,8 @@ def update_year(pin: int, new_year: int):
     
     ref.document(pin).update({"year": new_year})
 
-"""Handles voting for factions within a game session.
-    Returns the updated vote counts and whether all players have voted.
-"""
+# handles voting for factions within a game session
+# Returns the updated vote counts and whether all players have voted.
 def vote_for_faction(pin: str, faction: str):
 
     if faction not in ["rightists", "resourceists", "responsibilists"]:
@@ -303,8 +302,8 @@ def vote_for_faction(pin: str, faction: str):
     }
 
 
-""" Finalizes the faction vote once all players have voted.
-    Determines the winning faction and updates the session."""
+# Finalises the faction vote once all players have voted.
+# Determines the winning faction and updates the session.
 def finalize_faction_vote(pin: str):
     session = get_session_by_pin(pin)
     if not session:
@@ -332,7 +331,7 @@ def finalize_faction_vote(pin: str):
         "wasTie": len(winning_factions) > 1
     }
 
-"""Retrieves the faction votes and voting status for a session."""
+# Retrieves the faction votes and voting status for a session.
 def get_faction_votes(pin: str):
     session = get_session_by_pin(pin)
     if not session:
