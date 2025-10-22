@@ -9,7 +9,7 @@ import botocore
 from langchain.prompts import PromptTemplate
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Config
+# Configuration
 # ──────────────────────────────────────────────────────────────────────────────
 
 AWS_REGION = os.getenv("AWS_REGION", "us-west-2")
@@ -29,33 +29,31 @@ def _approx_tokens(s: str) -> int:
     return max(1, len(s) // 4)
 
 def _clip_chars(s: str, limit_chars: int) -> str:
+    """Clip long strings to a character limit, cutting at newline if possible."""
     if len(s) <= limit_chars:
         return s
     return (s[:limit_chars].rsplit("\n", 1)[0]) or s[:limit_chars]
 
+def _clip_context(text: str, max_chars: int = 1500) -> str:
+    """Trim long RAG context so total prompt stays within token limit."""
+    if len(text) <= max_chars:
+        return text
+    return text[:max_chars].rsplit(" ", 1)[0] + " ..."
+
 def _extract_json_block(text: str) -> Dict[str, Any] | None:
     """
-    Try hard to find a JSON object in free-form text (with/without code fences),
-    prefer one that contains 'scenario_text'.
+    Extract the last valid JSON object from a text output.
+    Prefers one containing 'scenario_text' or 'choices' keys.
     """
     if not isinstance(text, str):
         return None
 
-    # strip code fences if present
+    # Clean code fences
     t = re.sub(r"^```[a-zA-Z]*\n?", "", text.strip())
     t = re.sub(r"\n?```$", "", t).strip()
 
-    # 1) Whole string JSON?
-    try:
-        obj = json.loads(t)
-        if isinstance(obj, dict):
-            return obj
-    except Exception:
-        pass
-
-    # 2) Scan for {...}
+    candidates = []
     stack = []
-    first_valid: Dict[str, Any] | None = None
     for i, ch in enumerate(t):
         if ch == "{":
             stack.append(i)
@@ -65,13 +63,15 @@ def _extract_json_block(text: str) -> Dict[str, Any] | None:
             try:
                 obj = json.loads(candidate)
                 if isinstance(obj, dict):
-                    if "scenario_text" in obj:
-                        return obj
-                    if first_valid is None:
-                        first_valid = obj
+                    candidates.append(obj)
             except Exception:
                 pass
-    return first_valid
+
+    # Prefer the last valid JSON with keys we expect
+    for obj in reversed(candidates):
+        if "scenario_text" in obj or "choices" in obj:
+            return obj
+    return candidates[-1] if candidates else None
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Realtime SageMaker call
@@ -80,70 +80,72 @@ def _extract_json_block(text: str) -> Dict[str, Any] | None:
 def invoke_sync_tgi(
     prompt: str,
     *,
-    max_new_tokens: int = 180,
+    max_new_tokens: int = 300,
     temperature: float = 0.7,
-    return_full_text: bool = False,
-    top_p: float = 0.9,
-    top_k: int | None = None,
-    repetition_penalty: float | None = None,
 ) -> str:
-    """Call the realtime TGI endpoint synchronously and return a string (generated_text or raw JSON)."""
-    # Keep some headroom vs MAX_INPUT_TOKENS
-    headroom = 300
-    if _approx_tokens(prompt) >= MAX_INPUT_TOKENS - headroom:
-        keep_chars = max(600, (MAX_INPUT_TOKENS - headroom) * 4)
-        prompt = _clip_chars(prompt, keep_chars)
+    """Fixed: makes sync behave exactly like async (works for TGI models)."""
+    import json
 
-    payload: Dict[str, Any] = {
+    payload = {
         "inputs": prompt,
         "parameters": {
             "max_new_tokens": max_new_tokens,
             "temperature": temperature,
-            "return_full_text": return_full_text,
-            "top_p": top_p,
+            "top_p": 0.9,
+            "top_k": 50,
+            "repetition_penalty": 1.05,
+            "return_full_text": True,
+            "stop": ["\n\n\n"]
         },
+        "stream": False
     }
-    if top_k is not None:
-        payload["parameters"]["top_k"] = top_k
-    if repetition_penalty is not None:
-        payload["parameters"]["repetition_penalty"] = repetition_penalty
 
-    resp = _rt.invoke_endpoint(
+    response = _rt.invoke_endpoint(
         EndpointName=ENDPOINT_NAME,
         ContentType="application/json",
+        Accept="application/json",
         Body=json.dumps(payload).encode("utf-8"),
     )
 
-    body = resp["Body"].read()
-    try:
-        data = json.loads(body)
-    except Exception:
-        # model returned plain text
-        return body.decode("utf-8", errors="replace")
+    raw = response["Body"].read().decode("utf-8", errors="replace")
 
-    # TGI returns either a list of {generated_text} or a dict with that key.
-    if isinstance(data, list) and data and isinstance(data[0], dict) and "generated_text" in data[0]:
-        return data[0]["generated_text"]
-    if isinstance(data, dict) and "generated_text" in data:
-        return data["generated_text"]
-    # fallback: raw JSON
-    return json.dumps(data)
+    try:
+        data = json.loads(raw)
+        if isinstance(data, list) and "generated_text" in data[0]:
+            return data[0]["generated_text"]
+        if isinstance(data, dict) and "generated_text" in data:
+            return data["generated_text"]
+    except Exception:
+        pass
+
+    return raw
+
+# ──────────────────────────────────────────────────────────────────────────────
+# JSON generator (sync)
+# ──────────────────────────────────────────────────────────────────────────────
 
 def generate_json(
     prompt: str,
     *,
-    max_new_tokens: int = 180,
+    max_new_tokens: int = 600,
     temperature: float = 0.7,
 ) -> Dict[str, Any]:
+    prompt = _clip_chars(prompt, 4000)
+
     """
     Realtime JSON generator. Returns a dict with:
-      - keys from the model (scenario_text, choices, citations) when possible
-      - or {"raw_text": "..."} fallback.
+    - keys from the model (scenario_text, choices, citations) when possible
+    - or {"raw_text": "..."} fallback.
     """
     raw = invoke_sync_tgi(prompt, max_new_tokens=max_new_tokens, temperature=temperature)
+    
+    print("==== RAW MODEL OUTPUT START ====")
+    print(raw)
+    print("==== RAW MODEL OUTPUT END ====")
+
 
     # If it's JSON already:
-    if isinstance(raw, dict):  # (rare) if caller passed dict; keep it
+    if isinstance(raw, dict):
         return raw
     try:
         obj = json.loads(raw)
@@ -152,10 +154,10 @@ def generate_json(
     except Exception:
         pass
 
-    # Extract JSON block from free text, otherwise return raw_text
     obj = _extract_json_block(raw)
     if isinstance(obj, dict):
         return obj
+
     return {"raw_text": raw}
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -222,7 +224,7 @@ Context:
 first_scenario_and_choices_prompt = PromptTemplate.from_template(
     BASE_PROMPT + """
     You are the Scenario Writer and choice maker.
-    1. Write the first ~40 word scenario for the year {year}.
+    1. Write the first ~50 word scenario for the year {year}.
     2. Then, propose 3 realistic player choices that follow from it.
     
     The chosen faction: {faction} should shape the perspective and concerns in the story.
@@ -250,12 +252,10 @@ next_scenario_and_choices_prompt = PromptTemplate.from_template(
     BASE_PROMPT + """
     You are the Scenario Writer and choice maker.
     
-    1. Write a ~40 word scenario for the year {year}. Start with: "In {year}, ...".
-    2. Then, propose 3 realistic player choices that follow naturally from it.
-
     Strict rules:
-    This must directly continue from the previous scenario and the player's chosen response.
-    Do not restart. Do not ignore.
+    1. Write a 40-50 word scenario for the year {year}. Start with: "In {year}, ...".
+    2. Then, propose 3 realistic player choices that follow naturally from it.
+    3. The scenario must directly continue from the previous scenario and the player's chosen response. Do not restart. Do not ignore.
 
     Previous scenario:
     "{previous_scenario}"
@@ -267,7 +267,6 @@ next_scenario_and_choices_prompt = PromptTemplate.from_template(
     - Show unexpected consequences of the choice (e.g. backlash, unintended effects, new actors entering the scene).
     - Add variety: not just scandals and protests, but also breakthroughs, accidents, personal tragedies, underground movements, black markets etc.
     - Make it emotional and vivid, like a human drama
-    - Keep it ~40 words
 
     Respond with **only** a valid JSON object.
     Do not include explanations, commentary, or text outside the JSON.

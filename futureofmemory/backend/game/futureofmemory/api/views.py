@@ -14,6 +14,8 @@ from game.futureofmemory.services.llm_service import (
     first_scenario_and_choices_prompt,
     next_scenario_and_choices_prompt,
     SYSTEM_RULES,
+    _approx_tokens,
+    _clip_context,
 )
 
 from game.futureofmemory.services.firebase_service import (
@@ -318,7 +320,9 @@ class ScenarioView(APIView):
             docs = run_rag_query(
                 query=f"neurotechnology memory implants ethics {session['faction']} {session.get('year', 2075)}"
             ) or []
-            context_text = "\n\n".join([getattr(d, "page_content", str(d)) for d in docs])
+            context_text = "\n\n".join([getattr(d, "page_content", str(d))[:500] for d in docs])
+            context_text = _clip_context(context_text, 1500)
+
 
             # ---- Prompt ----
             prompt = first_scenario_and_choices_prompt.format(
@@ -388,7 +392,9 @@ class NextScenarioView(APIView):
             docs = run_rag_query(
                 query=f"{prev.get('text','')} consequence {chosen_text} faction:{session.get('faction')} year:{new_year}"
             ) or []
-            context_text = "\n\n".join([getattr(d, "page_content", str(d)) for d in docs])
+            context_text = "\n\n".join([getattr(d, "page_content", str(d))[:500] for d in docs])
+            context_text = _clip_context(context_text, 1500)
+
 
             # ---- Prompt for next year ----
             prompt = next_scenario_and_choices_prompt.format(
@@ -399,9 +405,11 @@ class NextScenarioView(APIView):
                 chosen_choice=chosen_text or "",
                 citations=""
             )
+            
+            print(f"[Prompt length] {len(prompt)} chars ≈ {_approx_tokens(prompt)} tokens")
 
             # ---- Generate synchronously ----
-            raw = generate_json(prompt, max_new_tokens=180, temperature=0.65)
+            raw = generate_json(prompt, max_new_tokens=300, temperature=0.65)
 
             # ---- Normalize + persist (idempotent txn) ----
             scenario = _normalize_scenario(raw, new_year, expected_new_id)
@@ -620,3 +628,5 @@ class GameStateView(APIView):
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
