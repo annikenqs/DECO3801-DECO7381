@@ -92,7 +92,6 @@ def retrieve(state: State):
 
 def generate(state: State):
     """Generate the next scenario and set of player choices based on retrieved context."""
-    vs = init_rag()
     
     # Combine retrieved documents into a single text block
     docs_content = "\n\n".join(doc.page_content for doc in state["context"])

@@ -6,9 +6,7 @@ PIN allocation, session creation, scenario updates, and voting logic.
 """
 import firebase_admin
 from firebase_admin import credentials, firestore
-from typing import Optional
 import random
-import json
 import os
 from game.futureofmemory.services.llm_service import _extract_json_obj
 

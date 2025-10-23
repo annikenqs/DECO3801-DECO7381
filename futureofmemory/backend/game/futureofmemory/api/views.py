@@ -3,29 +3,19 @@ views_game.py
 -------------
 Defines REST API endpoints for the game logic.
 """
-import json
-from typing import Dict, Any
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 
 from game.futureofmemory.services.query_service import run_rag
-from game.futureofmemory.services.llm_service import (
-    generate_json,
-    first_scenario_and_choices_prompt,
-    next_scenario_and_choices_prompt,
-    SYSTEM_RULES,
-    _approx_tokens,
-    _clip_context,
-    _normalize_scenario,
-)
 
 from game.futureofmemory.services.firebase_service import (
-    create_session, get_session_by_pin, add_scenario, update_scenarios, 
-    update_year, join_session, get_player_count, update_game_state, allocate_pin,
+    create_session, get_session_by_pin, update_scenarios, 
+    join_session, get_player_count, update_game_state, allocate_pin,
     vote_for_faction, finalize_faction_vote, get_faction_votes,
-    increment_choice_vote, pick_winner_from_choices, add_first_scenario_if_absent, add_next_scenario_if_absent 
+    increment_choice_vote, pick_winner_from_choices, 
+    add_first_scenario_if_absent, add_next_scenario_if_absent 
 )
 
 class SessionView(APIView):

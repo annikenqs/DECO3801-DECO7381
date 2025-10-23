@@ -7,7 +7,6 @@ Includes helpers for token limits, text cleanup, and structured output.
 import os
 import re
 import json
-import typing
 from typing import Any, Dict
 
 import boto3
@@ -35,14 +34,6 @@ def _clip_chars(s: str, limit_chars: int) -> str:
     if len(s) <= limit_chars:
         return s
     return (s[:limit_chars].rsplit("\n", 1)[0]) or s[:limit_chars]
-
-
-def _clip_context(text: str, max_chars: int = 1500) -> str:
-    """Trim long RAG context so total prompt stays within token limit."""
-    if len(text) <= max_chars:
-        return text
-    return text[:max_chars].rsplit(" ", 1)[0] + " ..."
-
 
 # --- JSON extraction and normalization functions ---
 
@@ -111,54 +102,6 @@ def _extract_json_obj(text: str) -> Dict[str, Any] | None:
 
     return None
 
-def _coerce_choices(raw) -> list[Dict[str, Any]]:
-    """Normalize choice data into a list of 3 dicts with ids and text."""
-    out = []
-    if isinstance(raw, list):
-        for i in range(min(3, len(raw))):
-            item = raw[i]
-            if isinstance(item, dict):
-                text = item.get("text") or item.get("choice") or ""
-            else:
-                text = str(item)
-            out.append({"id": i + 1, "text": text or f"Choice {i+1}"})
-            
-    while len(out) < 3:
-        out.append({"id": len(out) + 1, "text": f"Choice {len(out)+1}"})
-    return out[:3]
-
-def _normalize_scenario(data: Dict[str, Any], year: int, scenario_id: int) -> Dict[str, Any]:
-    """
-    Normalize model output into a consistent scenario structure.
-    Handles embedded JSON in 'text' or 'raw_text' fields and ensures exactly 3 choices.
-    """
-    base = data or {}
-    if "scenario_text" not in base:
-        for key in ("text", "raw_text"):
-            v = base.get(key)
-            if isinstance(v, str):
-                inner = _extract_json_obj(v)
-                if isinstance(inner, dict) and ("scenario_text" in inner or "choices" in inner):
-                    base = inner
-                    break
-    text = (
-        base.get("scenario_text")
-        or base.get("text")
-        or base.get("raw_text")
-        or ""
-    )
-
-    choices = _coerce_choices(base.get("choices") or [])
-
-    return {
-        "id": int(scenario_id),
-        "year": int(year),
-        "text": text,
-        "choices": choices,
-        "citations": base.get("citations", []),
-        "chosen": None,
-    }
-    
 def safe_parse_response(raw_output):
     """
     Safely parse model output into JSON.
