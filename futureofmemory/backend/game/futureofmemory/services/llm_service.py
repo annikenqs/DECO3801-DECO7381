@@ -5,7 +5,6 @@ import typing
 from typing import Any, Dict
 
 import boto3
-import botocore
 from langchain.prompts import PromptTemplate
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -26,7 +25,7 @@ _rt = _boto.client("sagemaker-runtime")
 
 
 def _approx_tokens(s: str) -> int:
-    # very rough heuristic: ~4 chars per token
+    """Rough heuristic: ~4 characters per token."""
     return max(1, len(s) // 4)
 
 
@@ -43,53 +42,137 @@ def _clip_context(text: str, max_chars: int = 1500) -> str:
         return text
     return text[:max_chars].rsplit(" ", 1)[0] + " ..."
 
+# ──────────────────────────────────────────────────────────────────────────────
+# JSON extraction & normalization
+# ──────────────────────────────────────────────────────────────────────────────
 
-def _extract_json_block(text: str) -> Dict[str, Any] | None:
+def _extract_json_obj(text: str) -> Dict[str, Any] | None:
     """
-    Extract the last valid JSON object from a text output.
-    Prefers one containing 'scenario_text' or 'choices' keys.
+    Extract a valid JSON object from messy text output.
+    - First tries to find the first balanced {...} JSON object (handles quotes and escapes).
+    - If multiple valid objects exist, prefers the last one containing 'scenario_text' or 'choices'.
+    - Falls back to parsing the whole text if direct extraction fails.
     """
     if not isinstance(text, str):
         return None
 
-    # Clean code fences
+    # Clean code fences (```)
     t = re.sub(r"^```[a-zA-Z]*\n?", "", text.strip())
     t = re.sub(r"\n?```$", "", t).strip()
 
+    # --- First pass: find and parse all balanced {...} blocks ---
     candidates = []
-    stack = []
-    for i, ch in enumerate(t):
-        if ch == "{":
-            stack.append(i)
-        elif ch == "}" and stack:
-            start = stack.pop()
-            candidate = t[start: i + 1]
-            try:
-                obj = json.loads(candidate)
-                if isinstance(obj, dict):
-                    candidates.append(obj)
-            except Exception:
-                pass
+    depth = 0
+    start = None
+    in_str = False
+    escape = False
 
-    # Prefer the last valid JSON with keys we expect
+    for i, ch in enumerate(t):
+        if in_str:
+            if escape:
+                escape = False
+            elif ch == "\\":
+                escape = True
+            elif ch == '"':
+                in_str = False
+            continue
+        if ch == '"':
+            in_str = True
+            continue
+        if ch == '{':
+            if depth == 0:
+                start = i
+            depth += 1
+        elif ch == '}' and depth > 0:
+            depth -= 1
+            if depth == 0 and start is not None:
+                frag = t[start:i+1]
+                try:
+                    obj = json.loads(frag)
+                    if isinstance(obj, dict):
+                        candidates.append(obj)
+                except Exception:
+                    pass
+
+    # Prefer last valid JSON with expected keys 
     for obj in reversed(candidates):
         if "scenario_text" in obj or "choices" in obj:
             return obj
-    return candidates[-1] if candidates else None
+
+    if candidates:
+        return candidates[-1]
+
+    # Fallback: maybe the entire string is JSON 
+    try:
+        obj = json.loads(t)
+        if isinstance(obj, dict):
+            return obj
+    except Exception:
+        return None
+
+    return None
+
+
+def _jsonish_to_obj(s: str) -> Dict[str, Any] | None:
+    """Alias for extracting a JSON object from text."""
+    return _extract_json_obj(s)
+
+def _coerce_choices(raw) -> list[Dict[str, Any]]:
+    """Normalize choice data into a list of 3 dicts with ids and text."""
+    out = []
+    if isinstance(raw, list):
+        for i in range(min(3, len(raw))):
+            item = raw[i]
+            if isinstance(item, dict):
+                text = item.get("text") or item.get("choice") or ""
+            else:
+                text = str(item)
+            out.append({"id": i + 1, "text": text or f"Choice {i+1}"})
+            
+    while len(out) < 3:
+        out.append({"id": len(out) + 1, "text": f"Choice {len(out)+1}"})
+    return out[:3]
+
+def _normalize_scenario(data: Dict[str, Any], year: int, scenario_id: int) -> Dict[str, Any]:
+    """
+    Normalize model output into a consistent structure.
+    - Handles JSON embedded inside `text` or `raw_text`
+    - Ensures exactly 3 choices
+    """
+    base = data or {}
+    if "scenario_text" not in base:
+        for key in ("text", "raw_text"):
+            v = base.get(key)
+            if isinstance(v, str):
+                inner = _jsonish_to_obj(v)
+                if isinstance(inner, dict) and ("scenario_text" in inner or "choices" in inner):
+                    base = inner
+                    break
+    text = (
+        base.get("scenario_text")
+        or base.get("text")
+        or base.get("raw_text")
+        or ""
+    )
+
+    choices = _coerce_choices(base.get("choices") or [])
+
+    return {
+        "id": int(scenario_id),
+        "year": int(year),
+        "text": text,
+        "choices": choices,
+        "citations": base.get("citations", []),
+        "chosen": None,
+    }
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Realtime SageMaker call
 # ──────────────────────────────────────────────────────────────────────────────
 
 
-def invoke_sync_tgi(
-    prompt: str,
-    *,
-    max_new_tokens: int = 300,
-    temperature: float = 0.7,
-) -> str:
-    """Fixed: makes sync behave exactly like async (works for TGI models)."""
-    import json
+def invoke_sync_tgi(prompt: str, *, max_new_tokens: int = 300, temperature: float = 0.7) -> str:
+    """Invoke a SageMaker text-generation endpoint synchronously."""
 
     payload = {
         "inputs": prompt,
@@ -125,37 +208,26 @@ def invoke_sync_tgi(
 
     return raw
 
+
 # ──────────────────────────────────────────────────────────────────────────────
 # JSON generator (sync)
 # ──────────────────────────────────────────────────────────────────────────────
 
 
-def generate_json(
-    prompt: str,
-    *,
-    max_new_tokens: int = 600,
-    temperature: float = 0.7,
-) -> Dict[str, Any]:
+def generate_json(prompt: str, *, max_new_tokens: int = 600, temperature: float = 0.7) -> Dict[str, Any]:
+    """Generate and parse a JSON object from model output."""
+    
     prompt = _clip_chars(prompt, 4000)
-
-    # --- Dynamic token safety adjustment ---
     tokens_in = _approx_tokens(prompt)
     max_allowed = MAX_TOTAL_TOKENS - tokens_in - 50
     safe_new_tokens = min(max_new_tokens, max(50, max_allowed))
 
-    """
-    Realtime JSON generator. Returns a dict with:
-    - keys from the model (scenario_text, choices, citations) when possible
-    - or {"raw_text": "..."} fallback.
-    """
-    raw = invoke_sync_tgi(
-        prompt, max_new_tokens=max_new_tokens, temperature=temperature)
+    raw = invoke_sync_tgi(prompt, max_new_tokens=safe_new_tokens, temperature=temperature)
 
     print("==== RAW MODEL OUTPUT START ====")
     print(raw)
     print("==== RAW MODEL OUTPUT END ====")
 
-    # If it's JSON already:
     if isinstance(raw, dict):
         return raw
     try:
@@ -165,7 +237,7 @@ def generate_json(
     except Exception:
         pass
 
-    obj = _extract_json_block(raw)
+    obj = _extract_json_obj(raw)
     if isinstance(obj, dict):
         return obj
 
@@ -177,21 +249,14 @@ def generate_json(
 
 
 def start_generation(prompt: str, max_new_tokens=200, temperature=0.7) -> Dict[str, Any]:
-    """
-    Back-compat: used to kick off async and return an S3 OutputLocation.
-    Now we run synchronously and return the parsed dict immediately.
-    """
+    """Run sync generation and return dict."""
     return generate_json(prompt, max_new_tokens=max_new_tokens, temperature=temperature)
 
 
 def collect_generation(output_location: typing.Any, timeout_s: int | None = None) -> Dict[str, Any]:
-    """
-    Back-compat: used to poll S3 and return parsed output.
-    Now, if 'output_location' is already a dict (from start_generation), just return it.
-    """
+    """Handle async-style output gracefully."""
     if isinstance(output_location, dict):
         return output_location
-    # If someone passes a string by mistake, try to parse it as JSON fallback:
     if isinstance(output_location, str):
         try:
             obj = json.loads(output_location)
@@ -205,7 +270,7 @@ def collect_generation(output_location: typing.Any, timeout_s: int | None = None
 # Prompts & rules
 # ──────────────────────────────────────────────────────────────────────────────
 
-# defines system rules that the LLM must adhere to
+# Defines system rules that the LLM must adhere to
 SYSTEM_RULES = {
     "rules": [
         "Neurotechnology implants have become popular by 2075.",
@@ -224,7 +289,7 @@ SYSTEM_RULES = {
     }
 }
 
-# defines the base prompt template for scenario generation
+# Defines the base prompt template for scenario generation
 BASE_PROMPT = """
 Follow these fixed system rules (do not change them):
 {system_rules}
@@ -263,7 +328,7 @@ first_scenario_and_choices_prompt = PromptTemplate.from_template(
     """
 )
 
-# defines the prompt template for generating the next scenario and choices
+# Defines the prompt template for generating the next scenario and choices
 next_scenario_and_choices_prompt = PromptTemplate.from_template(
     BASE_PROMPT + """
     You are the Scenario Writer and choice maker.
