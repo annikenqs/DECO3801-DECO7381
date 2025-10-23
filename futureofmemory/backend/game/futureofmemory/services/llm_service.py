@@ -24,9 +24,11 @@ _rt = _boto.client("sagemaker-runtime")
 # Small helpers
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 def _approx_tokens(s: str) -> int:
     # very rough heuristic: ~4 chars per token
     return max(1, len(s) // 4)
+
 
 def _clip_chars(s: str, limit_chars: int) -> str:
     """Clip long strings to a character limit, cutting at newline if possible."""
@@ -34,11 +36,13 @@ def _clip_chars(s: str, limit_chars: int) -> str:
         return s
     return (s[:limit_chars].rsplit("\n", 1)[0]) or s[:limit_chars]
 
+
 def _clip_context(text: str, max_chars: int = 1500) -> str:
     """Trim long RAG context so total prompt stays within token limit."""
     if len(text) <= max_chars:
         return text
     return text[:max_chars].rsplit(" ", 1)[0] + " ..."
+
 
 def _extract_json_block(text: str) -> Dict[str, Any] | None:
     """
@@ -59,7 +63,7 @@ def _extract_json_block(text: str) -> Dict[str, Any] | None:
             stack.append(i)
         elif ch == "}" and stack:
             start = stack.pop()
-            candidate = t[start : i + 1]
+            candidate = t[start: i + 1]
             try:
                 obj = json.loads(candidate)
                 if isinstance(obj, dict):
@@ -76,6 +80,7 @@ def _extract_json_block(text: str) -> Dict[str, Any] | None:
 # ──────────────────────────────────────────────────────────────────────────────
 # Realtime SageMaker call
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 def invoke_sync_tgi(
     prompt: str,
@@ -124,6 +129,7 @@ def invoke_sync_tgi(
 # JSON generator (sync)
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 def generate_json(
     prompt: str,
     *,
@@ -132,17 +138,22 @@ def generate_json(
 ) -> Dict[str, Any]:
     prompt = _clip_chars(prompt, 4000)
 
+    # --- Dynamic token safety adjustment ---
+    tokens_in = _approx_tokens(prompt)
+    max_allowed = MAX_TOTAL_TOKENS - tokens_in - 50
+    safe_new_tokens = min(max_new_tokens, max(50, max_allowed))
+
     """
     Realtime JSON generator. Returns a dict with:
     - keys from the model (scenario_text, choices, citations) when possible
     - or {"raw_text": "..."} fallback.
     """
-    raw = invoke_sync_tgi(prompt, max_new_tokens=max_new_tokens, temperature=temperature)
-    
+    raw = invoke_sync_tgi(
+        prompt, max_new_tokens=max_new_tokens, temperature=temperature)
+
     print("==== RAW MODEL OUTPUT START ====")
     print(raw)
     print("==== RAW MODEL OUTPUT END ====")
-
 
     # If it's JSON already:
     if isinstance(raw, dict):
@@ -164,12 +175,14 @@ def generate_json(
 # Back-compat shims for code that still expects async-style functions
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 def start_generation(prompt: str, max_new_tokens=200, temperature=0.7) -> Dict[str, Any]:
     """
     Back-compat: used to kick off async and return an S3 OutputLocation.
     Now we run synchronously and return the parsed dict immediately.
     """
     return generate_json(prompt, max_new_tokens=max_new_tokens, temperature=temperature)
+
 
 def collect_generation(output_location: typing.Any, timeout_s: int | None = None) -> Dict[str, Any]:
     """
@@ -191,6 +204,7 @@ def collect_generation(output_location: typing.Any, timeout_s: int | None = None
 # ──────────────────────────────────────────────────────────────────────────────
 # Prompts & rules
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 SYSTEM_RULES = {
     "rules": [
