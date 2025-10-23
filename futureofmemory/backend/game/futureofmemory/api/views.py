@@ -1,6 +1,9 @@
-import uuid
+"""
+views_game.py
+-------------
+Defines REST API endpoints for the game logic.
+"""
 import json
-import threading
 from typing import Dict, Any
 
 from rest_framework.views import APIView
@@ -8,7 +11,6 @@ from rest_framework.response import Response
 from rest_framework import status
 
 from game.futureofmemory.services.query_service import run_rag
-from game.futureofmemory.services.query_service import run_rag_query
 from game.futureofmemory.services.llm_service import (
     generate_json,
     first_scenario_and_choices_prompt,
@@ -183,9 +185,8 @@ class FactionResultView(APIView):
             )
 
 class ScenarioView(APIView):
-    "Generate and persist the first scenario for a session."
+    """Generate and persist the first scenario for a session."""
     def post(self, request, pin):
-
         try:
             # Validate session
             session = get_session_by_pin(pin)
@@ -201,30 +202,34 @@ class ScenarioView(APIView):
             if scenarios:
                 return Response(scenarios[0], status=status.HTTP_200_OK)
 
-            # Build RAG context
-            docs = run_rag_query(
-                query=f"neurotechnology memory implants ethics {session['faction']} {session.get('year', 2075)}"
-            ) or []
-            context_text = "\n\n".join([getattr(d, "page_content", str(d))[:500] for d in docs])
-            context_text = _clip_context(context_text, 1500)
+            year = int(session.get("year", 2075))
+            faction = session.get("faction", "Unknown")
 
-
-            # Prompt for first scenario
-            prompt = first_scenario_and_choices_prompt.format(
-                system_rules=json.dumps(SYSTEM_RULES),
-                context=context_text,
-                year=int(session.get("year", 2075)),
-                faction=session["faction"],
-                citations=""
+            # Generate scenario with RAG pipeline
+            rag_result = run_rag(
+                year=year,
+                scenario=None,
+                chosen_choice=None,
+                faction=faction
             )
 
-            # Generate scenario
-            raw = generate_json(prompt, max_new_tokens=180, temperature=0.7)
+            scenario_data = rag_result.get("scenario", {}) if isinstance(rag_result, dict) else {}
+            scenario_text = scenario_data.get("scenario_text") or scenario_data.get("text", "No scenario generated")
+            choices = scenario_data.get("choices", [])
+            citations = scenario_data.get("citations", [])
 
-            # Normalize and persist scenario 
             new_id = 1
-            year = int(session.get("year", 2075))
-            scenario = _normalize_scenario(raw, year, new_id)
+            
+            # Persist scenario
+            scenario = {
+                "id": new_id,
+                "year": year,
+                "text": scenario_text,
+                "choices": choices,
+                "citations": citations,
+                "chosen": None,
+            }
+
             persisted = add_first_scenario_if_absent(pin, scenario)
             print(f"[ScenarioView] pin={pin} PERSISTED first scenario id={persisted.get('id')}")
             return Response(persisted, status=status.HTTP_200_OK)
@@ -233,16 +238,16 @@ class ScenarioView(APIView):
             import traceback; traceback.print_exc()
             return Response({"error": str(e)}, status=status.HTTP_502_BAD_GATEWAY)
 
-class NextScenarioView(APIView):
-    """Generate and persist the next scenario in a session based on the previous outcome."""
-    def post(self, request, pin):
 
+class NextScenarioView(APIView):
+    """Generate and persist the next scenario in a session based on previous scenario and chosen choice."""
+    def post(self, request, pin):
         try:
             data = request.data or {}
             prev_id = int(data.get("previousScenarioId", 0))
             session = get_session_by_pin(pin)
 
-            # Validate session state before generating next scenario
+            # Validate session
             if not session:
                 return Response({"error": "Session not found"}, status=status.HTTP_404_NOT_FOUND)
             if session.get("status") != "in-progress":
@@ -252,57 +257,56 @@ class NextScenarioView(APIView):
             if not scenarios:
                 return Response({"error": "No previous scenario exists. Call /scenario/ first."}, status=status.HTTP_409_CONFLICT)
 
-            # Attempts to find the previous scenario
-            prev = next((s for s in scenarios if int(s.get("id", 0)) == int(prev_id)), scenarios[-1])
-
-            # Ensure previous scenario is finalized before generating the next
+            # Find previous scenario and chosen choice
+            prev = next((s for s in scenarios if int(s.get("id", 0)) == prev_id), scenarios[-1])
             if prev.get("chosen") is None:
                 return Response({"error": "Previous scenario not finalized (no winner)."}, status=status.HTTP_409_CONFLICT)
-
-            # Get text of the chosen choice to drive the next scenario
             chosen_text = next(
                 (c.get("text") for c in prev.get("choices", []) if int(c.get("id")) == int(prev["chosen"])),
                 None
             )
+            if not chosen_text:
+                return Response({"error": "Chosen choice not found in previous scenario."}, status=status.HTTP_400_BAD_REQUEST)
 
-            # Compute next scenario's year and ID
-            new_year = int(session.get("year", 2075)) + 1
+            prev_text = prev.get("text", "")
+            faction = session.get("faction", "Unknown")
+            prev_year = int(prev.get("year", session.get("year", 2075)))
+            new_year = prev_year + 1
             expected_new_id = (max(int(s.get("id", 0)) for s in scenarios) + 1) if scenarios else 1
 
-            # Build RAG contex
-            docs = run_rag_query(
-                query=f"{prev.get('text','')} consequence {chosen_text} faction:{session.get('faction')} year:{new_year}"
-            ) or []
-            context_text = "\n\n".join([getattr(d, "page_content", str(d))[:500] for d in docs])
-            context_text = _clip_context(context_text, 1500)
-
-
-            # Prompt for next year
-            prompt = next_scenario_and_choices_prompt.format(
-                system_rules=json.dumps(SYSTEM_RULES),
-                context=context_text,
+            # Generate next scenario with RAG
+            rag_result = run_rag(
                 year=new_year,
-                previous_scenario=prev.get("text", ""),
-                chosen_choice=chosen_text or "",
-                citations=""
+                scenario=prev_text,
+                chosen_choice=chosen_text,
+                faction=faction
             )
-            
-            print(f"[Prompt length] {len(prompt)} chars ≈ {_approx_tokens(prompt)} tokens")
 
-            # Generate next scenario text and choices
-            raw = generate_json(prompt, max_new_tokens=300, temperature=0.65)
+            scenario_data = rag_result.get("scenario", {}) if isinstance(rag_result, dict) else {}
+            scenario_text = scenario_data.get("scenario_text") or "No scenario generated"
+            choices = scenario_data.get("choices", [])
+            citations = scenario_data.get("citations", [])
 
-            # Normalize and persist scenario
-            scenario = _normalize_scenario(raw, new_year, expected_new_id)
+            # Persist next scenario
+            scenario = {
+                "id": expected_new_id,
+                "year": new_year,
+                "text": scenario_text,
+                "choices": choices,
+                "citations": citations,
+                "chosen": None,
+            }
+
             persisted = add_next_scenario_if_absent(pin, expected_new_id, scenario, new_year)
             print(f"[NextScenarioView] pin={pin} PERSISTED next scenario id={persisted.get('id')} year={persisted.get('year')}")
-            return Response(persisted, status=200)
+            return Response(persisted, status=status.HTTP_200_OK)
 
         except ValueError as ve:
-            return Response({"error": str(ve)}, status=400)
+            return Response({"error": str(ve)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             import traceback; traceback.print_exc()
-            return Response({"error": "Next scenario generation failed", "details": str(e)}, status=502)
+            return Response({"error": "Next scenario generation failed", "details": str(e)}, status=status.HTTP_502_BAD_GATEWAY)
+
 
 class CurrentScenarioView(APIView):
     """Retrieve the current active scenario for a session."""
