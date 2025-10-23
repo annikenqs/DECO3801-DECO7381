@@ -3,16 +3,13 @@ from rest_framework.test import APIClient
 from rest_framework import status
 from unittest.mock import patch
 
-### Base class for API tests.
 class BaseAPITest(SimpleTestCase):
     def setUp(self):
         self.client = APIClient()
         self.test_pin = "123456"
 
-
-### Tests for the Session Creation API endpoint.
 class SessionAPITests(BaseAPITest):
-    
+    """Tests for the session creation endpoint."""
     @patch("game.futureofmemory.api.views.create_session")
     @patch("game.futureofmemory.api.views.allocate_pin")
     def test_create_session_success(self, mock_allocate_pin, mock_create_session):
@@ -56,7 +53,7 @@ class SessionAPITests(BaseAPITest):
 
 
 class CurrentScenarioViewAPITests(BaseAPITest):
-
+    """Tests for the current scenario retrieval endpoint."""
     @patch("game.futureofmemory.api.views.get_session_by_pin")
     def test_current_scenario_session_not_found(self, mock_get_session):
         mock_get_session.return_value = None
@@ -75,7 +72,6 @@ class CurrentScenarioViewAPITests(BaseAPITest):
 
         resp = self.client.get(f"/api/session/{self.test_pin}/scenario/current/")
         self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
-        # View returns {"detail": "No scenario yet"} when empty
         self.assertIn("detail", resp.data)
 
     @patch("game.futureofmemory.api.views.get_session_by_pin")
@@ -97,7 +93,7 @@ class CurrentScenarioViewAPITests(BaseAPITest):
 
 
 class NextScenarioViewAPITests(BaseAPITest):
-
+    """Tests for the next scenario generation endpoint."""
     @patch("game.futureofmemory.api.views.get_session_by_pin")
     def test_next_scenario_session_not_found(self, mock_get_session):
         mock_get_session.return_value = None
@@ -153,10 +149,10 @@ class NextScenarioViewAPITests(BaseAPITest):
     @patch("game.futureofmemory.api.views.add_next_scenario_if_absent")
     @patch("game.futureofmemory.api.views.run_rag")
     @patch("game.futureofmemory.api.views.get_session_by_pin")
+    
     def test_next_scenario_success_appends_or_returns_existing(
         self, mock_get_session, mock_rag, mock_add_next
     ):
-        # Session with two scenarios; last one (id=2) is finalized; next should be id=3
         mock_get_session.return_value = {
             "pin": self.test_pin,
             "status": "in-progress",
@@ -168,7 +164,6 @@ class NextScenarioViewAPITests(BaseAPITest):
             ],
         }
 
-        # RAG may be called; content is used to build candidate but write is guarded by add_next_scenario_if_absent
         mock_rag.return_value = {
             "scenario": {
                 "text": "Generated 2078",
@@ -177,7 +172,6 @@ class NextScenarioViewAPITests(BaseAPITest):
             }
         }
 
-        # Persisted/returned scenario from transactional helper
         mock_add_next.return_value = {
             "id": 3,
             "text": "Generated 2078",
@@ -187,7 +181,6 @@ class NextScenarioViewAPITests(BaseAPITest):
             "citations": [],
         }
 
-        # Provide explicit previousScenarioId=2 to ensure it uses that one
         resp = self.client.post(
             f"/api/session/{self.test_pin}/scenario/next/",
             {"previousScenarioId": 2},
@@ -199,16 +192,14 @@ class NextScenarioViewAPITests(BaseAPITest):
         self.assertEqual(resp.data.get("year"), 2078)
         self.assertIn("choices", resp.data)
 
-        # Ensure helper was invoked with expected_new_id = max(existing ids)+1 = 3 and new_year = 2078
         args, kwargs = mock_add_next.call_args
-        # args: (pin, expected_new_id, candidate_dict, new_year)
         self.assertEqual(args[0], self.test_pin)
         self.assertEqual(args[1], 3)
         self.assertIsInstance(args[2], dict)
         self.assertEqual(args[3], 2078)
 
 class JoinSessionAPITests(BaseAPITest):
-        
+    """Tests for the join session endpoint."""
     @patch("game.futureofmemory.api.views.join_session")
     def test_join_session_success(self, mock_join_session):
         mock_join_session.return_value = {
@@ -230,9 +221,8 @@ class JoinSessionAPITests(BaseAPITest):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("error", response.data)
 
-### Tests for the Faction Vote API endpoint.
 class FactionVoteAPITests(BaseAPITest):
-        
+    """Tests for the faction voting endpoint."""
     @patch("game.futureofmemory.api.views.get_session_by_pin")
     @patch("game.futureofmemory.api.views.vote_for_faction")
     def test_faction_vote_success(self, mock_vote, mock_get_session):
@@ -273,9 +263,8 @@ class FactionVoteAPITests(BaseAPITest):
         
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
-### Tests for the Faction Result API endpoint.
 class FactionResultAPITests(BaseAPITest):
-        
+    """Tests for the faction result endpoint."""
     @patch("game.futureofmemory.api.views.get_session_by_pin")
     @patch("game.futureofmemory.api.views.get_faction_votes")
     @patch("game.futureofmemory.api.views.finalize_faction_vote")
@@ -302,7 +291,7 @@ class FactionResultAPITests(BaseAPITest):
 
 ### Tests for the Scenario API endpoint.
 class ScenarioAPITests(BaseAPITest):
-        
+    """Tests for the scenario retrieval and generation endpoint."""
     @patch("game.futureofmemory.api.views.get_session_by_pin")
     @patch("game.futureofmemory.api.views.run_rag")
     @patch("game.futureofmemory.api.views.add_first_scenario_if_absent")
@@ -352,9 +341,8 @@ class ScenarioAPITests(BaseAPITest):
         
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
-### Tests for the Voting Logic API endpoint.
 class VotingLogicAPITests(BaseAPITest):
-        
+    """Tests for the player voting endpoint."""
     @patch("game.futureofmemory.api.views.get_session_by_pin")
     @patch("game.futureofmemory.api.views.increment_choice_vote")
     def test_cast_vote_success(self, mock_increment, mock_get_session):
@@ -376,9 +364,8 @@ class VotingLogicAPITests(BaseAPITest):
         self.assertEqual(response.data["pin"], self.test_pin)
         self.assertIn("tally", response.data)
 
-### Tests for the Player Vote Check API endpoint.
 class PlayerVoteCheckAPITests(BaseAPITest):
-        
+    """Tests for the player vote status checking endpoint."""
     @patch("game.futureofmemory.api.views.get_session_by_pin")
     def test_vote_check_not_finalized(self, mock_get_session):
         mock_get_session.return_value = {
@@ -400,9 +387,8 @@ class PlayerVoteCheckAPITests(BaseAPITest):
         self.assertFalse(response.data["persisted"])
         self.assertEqual(response.data["total_votes"], 1)
 
-### Tests for the Game State API endpoint.
 class GameStateAPITests(BaseAPITest):
-        
+    """Tests for the game state retrieval and update endpoint."""
     @patch("game.futureofmemory.api.views.get_session_by_pin")
     def test_get_game_state(self, mock_get_session):
         mock_get_session.return_value = {
@@ -428,9 +414,8 @@ class GameStateAPITests(BaseAPITest):
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
-### Tests for the Player Count API endpoint.
 class PlayerCountAPITests(BaseAPITest):
-        
+    """Tests for the player count retrieval endpoint."""
     @patch("game.futureofmemory.api.views.get_player_count")
     def test_get_player_count(self, mock_get_count):
         mock_get_count.return_value = 3
@@ -440,9 +425,8 @@ class PlayerCountAPITests(BaseAPITest):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["player_count"], 3)
 
-### Integration Tests for complete game flow.
 class IntegrationTests(BaseAPITest):
-        
+    """Tests for the complete game flow."""
     @patch("game.futureofmemory.api.views.create_session")
     @patch("game.futureofmemory.api.views.allocate_pin")
     @patch("game.futureofmemory.api.views.join_session")
