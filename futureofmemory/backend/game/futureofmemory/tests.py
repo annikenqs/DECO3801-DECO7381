@@ -289,7 +289,6 @@ class FactionResultAPITests(BaseAPITest):
         self.assertTrue(response.data["finalized"])
         self.assertEqual(response.data["faction"], "rightists")
 
-### Tests for the Scenario API endpoint.
 class ScenarioAPITests(BaseAPITest):
     """Tests for the scenario retrieval and generation endpoint."""
     @patch("game.futureofmemory.api.views.get_session_by_pin")
