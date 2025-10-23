@@ -1,10 +1,12 @@
 // ========== Lighthouse interaction ==========
+// Handles light/dim visual effect when hovering over the lighthouse
 const scene = document.getElementById('scene');
 const hotspot = document.getElementById('lighthouseHotspot');
 
 const goBright = () => scene && scene.classList.add('is-bright');
 const goDim = () => scene && scene.classList.remove('is-bright');
 
+// Toggle brightness when lighthouse hotspot is hovered or focused
 if (hotspot) {
   hotspot.addEventListener('mouseenter', goBright);
   hotspot.addEventListener('mouseleave', goDim);
@@ -13,6 +15,7 @@ if (hotspot) {
 }
 
 // ========== Snow ==========
+// Creates a continuous falling snow animation using canvas
 (function initSnow() {
   const canvas = document.getElementById('snowCanvas');
   if (!canvas) return;
@@ -27,6 +30,7 @@ if (hotspot) {
     SWAY = 0.45;
   let flakes = [];
 
+  // Adjust canvas resolution for different screen sizes and pixel ratios
   function fitCanvas() {
     const dpr = Math.max(1, Math.floor(window.devicePixelRatio || 1));
     const cssW = window.innerWidth;
@@ -39,8 +43,10 @@ if (hotspot) {
     ctx.imageSmoothingEnabled = false;
   }
 
+  // Generate random number within a range
   const rand = (min, max) => Math.random() * (max - min) + min;
 
+  // Create snowflake objects with random positions and speeds
   function spawnFlakes() {
     flakes.length = 0;
     for (let i = 0; i < FLAKE_COUNT; i++) {
@@ -55,6 +61,7 @@ if (hotspot) {
     }
   }
 
+  // Draw and animate snowflakes on screen
   function draw() {
     ctx.clearRect(0, 0, canvas.clientWidth, canvas.clientHeight);
     ctx.fillStyle = '#FFFFFF';
@@ -69,6 +76,7 @@ if (hotspot) {
       f.y += f.vy;
       f.x += f.drift * 0.2;
 
+      // Recycle flakes when they move off-screen
       if (f.y > canvas.clientHeight + 2) {
         f.y = -4;
         f.x = Math.random() * canvas.clientWidth;
@@ -77,7 +85,7 @@ if (hotspot) {
       if (f.x > canvas.clientWidth + 4) f.x = -4;
     }
   }
-
+  // Main animation loop
   function loop() {
     draw();
     requestAnimationFrame(loop);
@@ -87,6 +95,7 @@ if (hotspot) {
   spawnFlakes();
   loop();
 
+  // Recreate flakes and resize canvas on window resize
   let resizeTimer = null;
   window.addEventListener('resize', () => {
     fitCanvas();
@@ -95,23 +104,28 @@ if (hotspot) {
   });
 })();
 
+// ========== Session creation ==========
 import {createSession, joinSession} from '../api/futureMemoryApi.js';
 
+// Wait until page content is loaded before activating "New Game" button
 window.addEventListener('DOMContentLoaded', () => {
   const newGameBtn = document.querySelector('a.btn[href="src/html/lobby.html"]');
   if (!newGameBtn) return;
 
+  // When clicked, create a new session and redirect player to lobby with PIN
   newGameBtn.addEventListener('click', async (e) => {
     e.preventDefault();
 
     try {
+      // Request a new game session from backend
       const session = await createSession({faction: 'Unknown', year: 2075});
-
+      // Extract session PIN and join the same session
       const pin = session?.pin;
       if (!pin) throw new Error("No 'pin' returned from backend");
 
       await joinSession({pin});
 
+      // Redirect to lobby page with PIN in URL
       const targetUrl = `src/html/lobby.html?pin=${encodeURIComponent(pin)}`;
       window.location.href = targetUrl;
     } catch (err) {

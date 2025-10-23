@@ -1,3 +1,4 @@
+<!-- Lobby page for the Future of Memory game. Displays game PIN, joined player count, and a Start Game button for the host. -->
 <!doctype html>
 <html lang="en">
   <head>
@@ -8,16 +9,19 @@
   </head>
   <body>
     <div class="scene">
+      <!-- Scene container with snow background effect -->
       <canvas id="snowCanvas" aria-hidden="true"></canvas>
-
+      <!-- Main lobby menu section -->
       <div class="menu">
         <h1 class="title">FUTURE OF MEMORY</h1>
-
+        <!-- Displays the unique game session PIN -->
         <div class="lobby-container">
           <h2 class="game-pin" id="game-pin-display">Game PIN:</h2>
+          <!-- Shows number of players connected (max 5) -->
           <div class="players-info" id="players-info">
             <p>0 / 5 players joined</p>
           </div>
+          <!-- Host-only button to start the game -->
           <button class="btn" id="start-game-btn">START GAME</button>
         </div>
       </div>

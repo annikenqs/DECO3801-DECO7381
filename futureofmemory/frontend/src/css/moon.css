@@ -1,3 +1,4 @@
+/* Page background setup with Shelter image and base text styling */
 body {
   margin: 0;
   padding: 0;
@@ -7,6 +8,7 @@ body {
   color: white;
 }
 
+/* Typewriter text positioning and formatting at bottom left */
 .typewriter {
   position: absolute;
   bottom: 100px;
@@ -15,6 +17,7 @@ body {
   white-space: pre-line;
 }
 
+/* Next button placement and appearance */
 .next-button {
   position: absolute;
   bottom: 40px;
@@ -28,6 +31,7 @@ body {
   transition: background 0.3s;
 }
 
+/* Hover effect for next button (light background highlight) */
 .next-button:hover {
   background-color: rgba(255, 255, 255, 0.3);
 }

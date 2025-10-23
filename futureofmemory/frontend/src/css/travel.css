@@ -1,3 +1,4 @@
+/* Color variables for foreground, accent, and glow theme */
 :root {
   --fg: #cfe7ff;
   --dim: #8fa4bf;
@@ -5,6 +6,7 @@
   --glow: #a0d8ff;
 }
 
+/* Base page setup: full height, dark background, and default font */
 html,
 body {
   height: 100%;
@@ -19,13 +21,15 @@ body {
     'Helvetica Neue',
     Arial;
 }
+
+/* Main wrapper container for entire viewport */
 .wrap {
   position: relative;
   min-height: 100vh;
   overflow: hidden;
 }
 
-/* Background image (can be changed to 2075 before the end) */
+/* Background image layer (scene backdrop) */
 .bg {
   position: fixed;
   inset: 0;
@@ -39,7 +43,7 @@ body {
   z-index: 0;
 }
 
-/* Noise/scan lines/vignetting */
+/* Noise texture overlay for visual depth */
 .grain {
   position: fixed;
   inset: 0;
@@ -50,6 +54,8 @@ body {
   mix-blend-mode: screen;
   animation: flicker 1.6s infinite steps(2);
 }
+
+/* Horizontal scanline overlay for CRT effect */
 .scanline {
   position: fixed;
   inset: 0;
@@ -62,6 +68,8 @@ body {
   );
   opacity: 0.08;
 }
+
+/* Vignette gradient darkening screen edges */
 .vignette {
   position: fixed;
   inset: 0;
@@ -70,7 +78,7 @@ body {
   background: radial-gradient(1200px 600px at 50% 50%, transparent 40%, rgba(0, 0, 0, 0.45) 100%);
 }
 
-/* Time rift */
+/* Time rift visual center effect container */
 .rift {
   position: fixed;
   inset: 0;
@@ -79,6 +87,8 @@ body {
   display: grid;
   place-items: center;
 }
+
+/* Outer glowing ring animation for rift */
 .ring {
   position: absolute;
   width: min(56vmin, 560px);
@@ -91,6 +101,8 @@ body {
   animation: pulse 2.4s ease-in-out infinite;
   filter: drop-shadow(0 0 18px rgba(160, 216, 255, 0.35));
 }
+
+/* Additional concentric rings with delayed pulse */
 .ring-2 {
   width: min(40vmin, 420px);
   height: min(40vmin, 420px);
@@ -102,6 +114,7 @@ body {
   animation-delay: 0.4s;
 }
 
+/* Keyframes for ring pulsing animation */
 @keyframes pulse {
   0% {
     transform: scale(0.96);
@@ -116,6 +129,8 @@ body {
     opacity: 0.9;
   }
 }
+
+/* Keyframes for grain flicker effect */
 @keyframes flicker {
   0%,
   100% {
@@ -126,7 +141,7 @@ body {
   }
 }
 
-/* HUD area */
+/* Heads-up display container at bottom center */
 .hud {
   position: fixed;
   left: 50%;
@@ -140,17 +155,23 @@ body {
   border: 2px solid rgba(255, 255, 255, 0.14);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
 }
+
+/* Primary text line within HUD */
 .line {
   margin: 0 0 8px 0;
   font-size: clamp(14px, 2.2vw, 18px);
   color: var(--fg);
   text-shadow: 0 0 6px rgba(160, 216, 255, 0.18);
 }
+
+/* Subtext line below main HUD text */
 .sub {
   margin: 0 0 12px 0;
   font-size: clamp(12px, 2vw, 16px);
   color: var(--dim);
 }
+
+/* Interactive button styling inside HUD */
 .btn {
   display: inline-block;
   padding: 10px 16px;
@@ -161,6 +182,8 @@ body {
   font-weight: 700;
   letter-spacing: 0.5px;
 }
+
+/* Button hover brightening effect */
 .btn:hover {
   filter: brightness(1.2);
 }

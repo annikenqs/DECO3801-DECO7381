@@ -1,3 +1,4 @@
+/* Custom font import for scenario text display */
 @font-face {
   font-family: 'VT323';
   src: url('../assets/fonts/VT323.woff2') format('woff2');
@@ -6,6 +7,7 @@
   font-display: swap;
 }
 
+/* Color variables and glow effects for consistent theme */
 :root {
   --bg: #02070c;
   --bg-deep: #091522;
@@ -15,14 +17,18 @@
   --glow2: rgba(120, 180, 255, 0.22);
 }
 
+/* Global box sizing reset */
 * {
   box-sizing: border-box;
 }
+
+/* Full height setup for entire page */
 html,
 body {
   height: 100%;
 }
 
+/* Base background gradients, font, and overflow settings */
 body {
   margin: 0;
   color: var(--ink);
@@ -36,6 +42,7 @@ body {
   overflow-x: hidden;
 }
 
+/* Overlay scanline texture for CRT-like visual effect */
 body::after {
   content: '';
   position: fixed;
@@ -51,6 +58,7 @@ body::after {
   pointer-events: none;
 }
 
+/* Fixed year label (e.g., YEAR 2085) positioning and glow styling */
 .year {
   position: fixed;
   top: 28px;
@@ -65,6 +73,7 @@ body::after {
   user-select: none;
 }
 
+/* Main stage container centering scenario content */
 .stage {
   min-height: 100vh;
   display: grid;
@@ -73,6 +82,7 @@ body::after {
   padding: 96px 16px 56px;
 }
 
+/* Scenario description text styling */
 .scenario {
   text-align: center;
   font-size: 30px;
@@ -87,6 +97,7 @@ body::after {
   word-break: break-word;
 }
 
+/* List container for interactive player choices */
 .options {
   list-style: none;
   padding: 0;
@@ -94,10 +105,13 @@ body::after {
   text-align: center;
   margin-top: 48px;
 }
+
+/* Spacing between each scenario choice */
 .options li {
   margin: 10px 0;
 }
 
+/* Individual choice button styling and animation */
 .option {
   appearance: none;
   background: transparent;
@@ -113,6 +127,8 @@ body::after {
     text-shadow 0.2s ease;
   font-family: inherit;
 }
+
+/* Underline animation for hovered or focused options */
 .option::after {
   content: '';
   position: absolute;
@@ -126,6 +142,8 @@ body::after {
   filter: drop-shadow(0 0 6px var(--glow1));
   transition: transform 0.22s ease;
 }
+
+/* Hover and focus glow effects on scenario options */
 .option:hover::after,
 .option:focus-visible::after {
   transform: scaleX(1);
@@ -139,6 +157,7 @@ body::after {
   transform: translateY(0.5px);
 }
 
+/* Responsive scaling for small screen devices */
 @media (max-width: 600px) {
   .year {
     font-size: 40px;
@@ -154,6 +173,7 @@ body::after {
   }
 }
 
+/* Loading overlay visibility control */
 #fm-loading[hidden] {
   display: none !important;
 }
@@ -163,12 +183,15 @@ body::after {
   z-index: 9999;
 }
 
+/* Loading screen blurred background */
 .fm-loading__backdrop {
   position: absolute;
   inset: 0;
   background: rgba(2, 7, 12, 0.6);
   backdrop-filter: blur(3px);
 }
+
+/* Center panel container for loading elements */
 .fm-loading__panel {
   position: absolute;
   inset: 0;
@@ -181,6 +204,7 @@ body::after {
   pointer-events: auto;
 }
 
+/* Loading card container with blur and glow */
 .fm-card {
   min-width: min(86vw, 520px);
   max-width: 92vw;
@@ -197,6 +221,8 @@ body::after {
   gap: 10px;
   animation: fm-pop 220ms ease-out both;
 }
+
+/* Pop-in animation for card appearance */
 @keyframes fm-pop {
   from {
     transform: translateY(4px) scale(0.98);
@@ -208,6 +234,7 @@ body::after {
   }
 }
 
+/* “Loading…” text animation and style */
 .fm-loading__text {
   margin: 0;
   font-family: 'VT323', 'Courier New', monospace;
@@ -218,6 +245,8 @@ body::after {
   text-shadow: 0 0 10px rgba(164, 210, 255, 0.28);
   animation: fm-breathe 2.2s ease-in-out infinite;
 }
+
+/* Breathing animation for loading text */
 @keyframes fm-breathe {
   0% {
     opacity: 0.72;
@@ -242,6 +271,7 @@ body::after {
   }
 }
 
+/* Rotating orbit container around loading planet */
 .fm-orbit {
   position: relative;
   width: 72px;
@@ -250,6 +280,7 @@ body::after {
   filter: drop-shadow(0 0 10px rgba(164, 210, 255, 0.25));
 }
 
+/* Orbit ring styling */
 .fm-orbit::before {
   content: '';
   position: absolute;
@@ -262,6 +293,7 @@ body::after {
   opacity: 0.9;
 }
 
+/* Central glowing planet in loading animation */
 .fm-planet {
   position: absolute;
   left: 50%;
@@ -283,6 +315,8 @@ body::after {
     0 0 24px rgba(120, 180, 255, 0.25);
   animation: fm-planet-pulse 2.4s ease-in-out infinite;
 }
+
+/* Planet breathing pulse animation */
 @keyframes fm-planet-pulse {
   0%,
   100% {
@@ -295,6 +329,7 @@ body::after {
   }
 }
 
+/* Orbiting asteroid styling */
 .fm-asteroid {
   position: absolute;
   left: 50%;
@@ -311,7 +346,8 @@ body::after {
   transform: rotate(0deg) translateY(-26px) rotate(0deg);
   animation: fm-asteroid-orbit 2.8s linear infinite;
 }
-/* The second asteroid */
+
+/* Secondary asteroid orbit styling */
 .fm-asteroid--alt {
   width: 6px;
   height: 6px;
@@ -325,6 +361,8 @@ body::after {
     0 0 6px rgba(164, 210, 255, 0.45),
     0 0 10px rgba(120, 180, 255, 0.28);
 }
+
+/* Orbit motion for asteroids */
 @keyframes fm-asteroid-orbit {
   from {
     transform: rotate(0deg) translateY(-26px) rotate(0deg);
@@ -342,6 +380,7 @@ body::after {
   }
 }
 
+/* Accessibility: reduced-motion version of animations */
 @media (prefers-reduced-motion: reduce) {
   .fm-card {
     animation: none;
@@ -370,6 +409,7 @@ body::after {
   }
 }
 
+/* Overlay for final game completion screen */
 #game-finished-overlay {
   position: fixed;
   inset: 0;
@@ -386,10 +426,12 @@ body::after {
   z-index: 9999;
 }
 
+/* Transition for visible end screen */
 #game-finished-overlay.visible {
   opacity: 1;
 }
 
+/* Subtle drifting pattern overlay effect */
 #game-finished-overlay::before {
   content: '';
   position: absolute;
@@ -400,6 +442,7 @@ body::after {
   animation: drift 20s linear infinite;
 }
 
+/* Background drift animation for overlay */
 @keyframes drift {
   from {
     transform: translateY(0px);
@@ -409,6 +452,7 @@ body::after {
   }
 }
 
+/* Card container for final memory message */
 .game-finish-card {
   text-align: center;
   padding: 32px 48px;
@@ -421,6 +465,7 @@ body::after {
   animation: fm-pop 220ms ease-out both;
 }
 
+/* Animated “Memory Restored” or ending title text */
 .finish-title {
   font-size: 28px;
   color: var(--ink);
@@ -435,6 +480,7 @@ body::after {
     softPulse 3s ease-in-out infinite 2.5s;
 }
 
+/* Fade-in and pulse effects for ending text */
 @keyframes fadeInMemory {
   0% {
     opacity: 0;
@@ -468,12 +514,14 @@ body::after {
   }
 }
 
+/* Fade-in animation for Return Home button */
 #returnHomeBtn {
   animation: fadeInButton 1.8s ease forwards;
   opacity: 0;
   animation-delay: 1.8s;
 }
 
+/* Button entrance animation */
 @keyframes fadeInButton {
   to {
     opacity: 1;
@@ -481,6 +529,7 @@ body::after {
   }
 }
 
+/* Layout for final-year scene overlay */
 .final-year {
   display: flex;
   flex-direction: column;
@@ -496,6 +545,7 @@ body::after {
   z-index: 1000;
 }
 
+/* Large glowing year text in final screen */
 .final-year .year {
   position: relative;
   top: -40px;
@@ -508,6 +558,7 @@ body::after {
     0 0 40px var(--glow2);
 }
 
+/* Scenario text styling for final year message */
 .final-year .scenario {
   max-width: 900px;
   font-size: 28px;
