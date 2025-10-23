@@ -1,22 +1,28 @@
+"""
+chroma_service.py
+-----------------
+Handles initialization of the Chroma vector store and ingestion of documents
+for the RAG pipeline.
+"""
 from langchain_chroma import Chroma
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import PyPDFLoader
 from pathlib import Path
 
-# initializes Chroma vector store
 def init_chroma(embeddings, persist_directory="./chroma_langchain_db"):
+    """Initialize and return a Chroma vector store."""
     return Chroma(
         collection_name="neuro_collection",
         embedding_function=embeddings,
         persist_directory=persist_directory,
     )
 
-# loads documents from the neurotech data directory
+# Loads documents from the neurotech data directory
 BASE_DIR = Path(__file__).resolve().parent  
 DATA_DIR = BASE_DIR / "neurotech"
 
-# loads and splits documents for vector store ingestion
 def load_documents(data_dir=DATA_DIR):
+    """Load PDF files, add metadata, and split them into chunks."""
     docs = []
 
     for path in Path(data_dir).rglob("*"):
