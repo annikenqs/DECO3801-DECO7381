@@ -1,9 +1,14 @@
+"""
+query_service.py
+---------------
+Implements the RAG pipeline for scenario generation.
+Handles retrieval, prompt building, and model invocation using Chroma and LangGraph.
+"""
 from typing_extensions import TypedDict, List
 from langgraph.graph import StateGraph, START
 from langchain_core.documents import Document
 from threading import Lock
 
-# import requisite services for querying
 from .embedding_service import get_embeddings
 from .chroma_service import init_chroma, load_documents
 from .llm_service import (
@@ -11,13 +16,13 @@ from .llm_service import (
     SYSTEM_RULES,
     first_scenario_and_choices_prompt,
     next_scenario_and_choices_prompt,
+    safe_parse_response,
 )
 
 vector_store = None
-_vector_lock = Lock()
 
-# initialise the RAG
 def init_rag():
+    """Initialize and load the Chroma vector store if not already initialized."""
     global vector_store
     if vector_store is None:
         embeddings = get_embeddings()
@@ -28,19 +33,14 @@ def init_rag():
     return vector_store
 
 
-def run_rag_query(query: str):
-    vs = init_rag()
-    retriever = vs.as_retriever()
-    docs = retriever.invoke(query)
-    return docs
-
 def _clip(s: str, max_chars: int) -> str:
+    """Clip text to a maximum character length, preferring to cut at a newline."""
     if len(s) <= max_chars:
         return s
     return s[:max_chars].rsplit("\n", 1)[0] or s[:max_chars]
 
-# State
 class State(TypedDict):
+    """Defines the data flow state for RAG-driven scenario generation."""
     question: str
     context: List[Document]
     answer: str
@@ -50,8 +50,11 @@ class State(TypedDict):
     year: int
     faction: str 
 
-# retrieves relevant documents
 def retrieve(state: State):
+    """
+    Retrieve relevant documents from the vector store based on the scenario state.
+    Builds a query dynamically depending on previous scenario and chosen choice.
+    """
     vs = init_rag()
 
     faction = state.get("faction", "Unknown")
@@ -70,10 +73,10 @@ def retrieve(state: State):
             f"Consider information that could be relevant to faction {faction}."
         )
 
-    # smaller fanout
+    # Perform semantic similarity search
     raw = vs.similarity_search(query, k=3)
 
-    # de-dupe by (source, page)
+    # Deduplicate documents based on source and page metadata
     seen = set()
     deduped = []
     for d in raw:
@@ -86,22 +89,25 @@ def retrieve(state: State):
 
     return {"context": deduped[:2]}
 
-# generates the next scenario
+
 def generate(state: State):
+    """Generate the next scenario and set of player choices based on retrieved context."""
     vs = init_rag()
+    
+    # Combine retrieved documents into a single text block
     docs_content = "\n\n".join(doc.page_content for doc in state["context"])
-
-    # Keep context compact (smaller than before)
-    docs_content = _clip(docs_content, 1600)  # ~400 tokens max
-
+    docs_content = _clip(docs_content, 1600) 
 
     year = state.get("year", 2075)
     faction = state.get("faction", "Unknown")
+    
+    # Collect unique sources for citation formatting
     sources = list({(doc.metadata or {}).get("source") for doc in state["context"] if doc.metadata}) or ["(no_source_found)"]
     citations_literal = ", ".join([f'"{s}"' for s in sources])
     
     chosen_choice_text = state.get("chosen_choice") or "None"
     
+    # Choose appropriate prompt template 
     if not state.get("scenario") or not state.get("chosen_choice"):
         scenario_prompt = first_scenario_and_choices_prompt.format(
             context=docs_content,
@@ -121,8 +127,11 @@ def generate(state: State):
             chosen_choice=chosen_choice_text
         )
     
-    scenario_raw = scenario_response.content.strip()
-    scenario_parsed = safe_parse_response(scenario_raw)
+    # Generate and parse scenario output from the language model
+    scenario_response = generate_json(scenario_prompt)
+    scenario_parsed = safe_parse_response(scenario_response)
+    
+    # Extract structured results
     scenario_text = scenario_parsed.get("scenario_text", "No scenario generated")
     choices = scenario_parsed.get("choices", [])
     citations = scenario_parsed.get("citations", [])
@@ -140,8 +149,9 @@ graph_builder = StateGraph(State).add_sequence([retrieve, generate])
 graph_builder.add_edge(START, "retrieve")
 graph = graph_builder.compile()
 
-# runs RAG
+
 def run_rag(year: int = 2075, scenario=None, choices=None, chosen_choice=None, faction="Unknown", **kwargs):
+    """Runs the RAG pipeline to generate scenario based on the current state."""
     state = {
         "year": year,
         "scenario": scenario,

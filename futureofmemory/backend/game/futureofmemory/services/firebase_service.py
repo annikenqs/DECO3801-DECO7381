@@ -1,11 +1,18 @@
+"""
+firebase_service.py
+-------------------
+Handles all Firestore interactions for game sessions, including
+PIN allocation, session creation, scenario updates, and voting logic.
+"""
 import firebase_admin
 from firebase_admin import credentials, firestore
 from typing import Optional
 import random
 import json
 import os
+from game.futureofmemory.services.llm_service import _extract_json_obj
 
-# Init Firebase app only once
+# Init Firebase app 
 if not firebase_admin._apps:
     cred_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "serviceAccountKey.json")
     cred = credentials.Certificate(cred_path)
@@ -14,30 +21,30 @@ if not firebase_admin._apps:
 db = firestore.client()
 ref = db.collection('games')
 
-# converts an integer to a six-digit string
-# i.e. 1 => 000001, 3 => 000003, 102345 => 102345
+
 def integer_to_string(number: int) -> str:
+    """ converts an integer to a six-digit string i.e. 1 => 000001, 3 => 000003, 102345 => 102345"""
     return f"{number:06d}"
 
-# increments pin untill overflow, then resets to 0
 def increment_pin(number: int) -> int:
+    """increments pin untill overflow, then resets to 0"""
     return 0 if number >= 999999 else number + 1
 
-"""
-    Allocates a new unique pin for a game session.
-    Steps involved:
 
-    1. sets up a 'pin counter' object and names it as counter reference
-    2. obtains the reference itself
-    3. obtains the last snapshot if it exists (which is the pin)
-    4. increments and sets the pin to a string
-    5. sets the transaction as the pin counter object, the last value (which is the new value), and a merge command which enables merging
-    6. return the new pin
-"""
 @firestore.transactional
 def allocate_pin_transaction(transaction: firestore.Transaction) -> str:
+    """
+        Allocates a new unique pin for a game session.
+        Steps involved:
 
-
+        1. sets up a 'pin counter' object and names it as counter reference
+        2. obtains the reference itself
+        3. obtains the last snapshot if it exists (which is the pin)
+        4. increments and sets the pin to a string
+        5. sets the transaction as the pin counter object, the last value (which is the new value), and a merge command which enables merging
+        6. return the new pin
+    """
+    
     counter_reference = db.collection("meta").document("pin-counter")
     snap = counter_reference.get(transaction=transaction)
     last = snap.get("last") if snap.exists else -1
@@ -87,7 +94,6 @@ def increment_choice_vote_transaction(transaction: firestore.Transaction, pin: s
     for ch in scenario.get("choices", []):
         if ch.get("id") == choice_id:
             ch["votes"] = int(ch.get("votes", 0)) + 1
-            # then found is true and so we exit the loop
             found = True
             break
     if not found:
@@ -132,43 +138,12 @@ def create_session(faction: str, year: int, status: str, pin: int, numberofplaye
     return {"pin": pin, "faction": faction, "year": year}
 
 
-def get_pin(doc_id: str) -> str:
-    """Helper function that retrieves the pin for a given document id."""
-
-    doc_ref = db.collection("games").document(doc_id)
-    snapshot = doc_ref.get()
-
-    if not snapshot.exists:
-        return ValueError("Session ID doesn't exist")
-
-
-def update_pin(doc_id: str) -> str:
-    """Helper function that updates the pin for a given document id."""
-    doc_ref = db.collection("games").document(doc_id)
-    snapshot = doc_ref.get()
-
-    if not snapshot.exists:
-        return ValueError("Session ID doesn't exist")
-    
-    current_pin = snapshot.get("pin")
-    try:
-        current_val = int(current_pin)
-    except (TypeError, ValueError):
-        current_val = -1
-    
-    new_pin = integer_to_string(current_val)
-    doc_ref.update({"pin":new_pin})
-    return new_pin
-
 
 def join_session(pin: int):
     """Allows a player to join a game session using its pin."""
-
     session = get_session_by_pin(pin)
-
     if not session:
         raise ValueError("Invalid PIN.")
-
     if session.get("status") != "lobby":
         print(session.get("status"))
         raise ValueError("Game has already started and cannot be joined.")
@@ -178,7 +153,6 @@ def join_session(pin: int):
         raise ValueError("This game is full.")
 
     ref.document(pin).update({"numberofplayers": number_of_players + 1})
-
     session["numberofplayers"] = number_of_players + 1
     return session
 
@@ -216,8 +190,6 @@ def pick_winner_from_choices(choices):
     return max(choices, key=lambda ch: (int(ch.get("votes", 0)), -int(ch.get("id", 0))))
 
 
-get_session = get_session_by_pin
-
 def add_scenario(pin: int, scenario: dict):
     """Adds a scenario to a session."""
     session = get_session_by_pin(pin)
@@ -232,7 +204,7 @@ def add_scenario(pin: int, scenario: dict):
         norm_choices.append({
             "id": c.get("id"),
             "text": c.get("text"),
-            "votes": int(c.get("votes", 0))  # default 0
+            "votes": int(c.get("votes", 0))  
         })
     
     # update scenario choices
@@ -399,7 +371,7 @@ def add_first_scenario_if_absent_txn(transaction: firestore.Transaction, pin: st
     text_in = scenario.get("text") or scenario.get("scenario_text") or ""
     choices_in = scenario.get("choices") or []
     if isinstance(text_in, str) and text_in.strip().startswith("{"):
-        maybe = _extract_first_json_obj(text_in)
+        maybe = _extract_json_obj(text_in)
         if isinstance(maybe, dict):
             text_in = maybe.get("scenario_text") or maybe.get("text") or text_in
             if not choices_in:
@@ -467,7 +439,7 @@ def add_next_scenario_if_absent_txn(
     text_in = candidate.get("text") or candidate.get("scenario_text") or ""
     choices_in = candidate.get("choices") or []
     if isinstance(text_in, str) and text_in.strip().startswith("{"):
-        maybe = _extract_first_json_obj(text_in)
+        maybe = _extract_json_obj(text_in)
         if isinstance(maybe, dict):
             text_in = maybe.get("scenario_text") or maybe.get("text") or text_in
             if not choices_in:
@@ -498,46 +470,8 @@ def add_next_scenario_if_absent(pin: str, expected_new_id: int, candidate: dict,
     tx = db.transaction()
     return add_next_scenario_if_absent_txn(tx, pin, expected_new_id, candidate, new_year)
 
-def _extract_first_json_obj(s: str):
-    """Find and parse the first balanced {...} JSON object in s. Ignores braces inside quotes."""
-    if not isinstance(s, str):
-        return None
-    depth = 0
-    start = None
-    in_str = False
-    esc = False
-    for i, ch in enumerate(s):
-        if in_str:
-            if esc:
-                esc = False
-            elif ch == "\\":
-                esc = True
-            elif ch == '"':
-                in_str = False
-            continue
-        if ch == '"':
-            in_str = True
-            continue
-        if ch == '{':
-            if depth == 0:
-                start = i
-            depth += 1
-        elif ch == '}' and depth > 0:
-            depth -= 1
-            if depth == 0 and start is not None:
-                frag = s[start:i+1]
-                try:
-                    return json.loads(frag)
-                except Exception:
-                    start = None  # keep scanning
-    # fallback: maybe whole string is JSON
-    try:
-        return json.loads(s)
-    except Exception:
-        return None
 
-def _coerce_choices_for_storage(raw_choices: list) -> list:
-    """Existing helper (leave as-is)."""
-    pass
+
+
 
 

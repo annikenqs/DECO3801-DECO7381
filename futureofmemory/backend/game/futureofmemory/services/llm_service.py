@@ -1,3 +1,9 @@
+"""
+llm_service.py
+----------------
+Manages SageMaker model calls and JSON parsing for scenario generation.
+Includes helpers for token limits, text cleanup, and structured output.
+"""
 import os
 import re
 import json
@@ -7,22 +13,17 @@ from typing import Any, Dict
 import boto3
 from langchain.prompts import PromptTemplate
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Configuration
-# ──────────────────────────────────────────────────────────────────────────────
+# --- Configuration ---
 
 AWS_REGION = os.getenv("AWS_REGION", "us-west-2")
 ENDPOINT_NAME = os.getenv("SM_ENDPOINT_NAME", "neuro-rag-rt")
-MAX_INPUT_TOKENS = int(os.getenv("MAX_INPUT_TOKENS", "1536"))
 MAX_TOTAL_TOKENS = int(os.getenv("MAX_TOTAL_TOKENS", "2048"))
 
 _boto = boto3.Session(region_name=AWS_REGION)
 _rt = _boto.client("sagemaker-runtime")
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Small helpers
-# ──────────────────────────────────────────────────────────────────────────────
 
+# --- Utility functions ---
 
 def _approx_tokens(s: str) -> int:
     """Rough heuristic: ~4 characters per token."""
@@ -42,13 +43,12 @@ def _clip_context(text: str, max_chars: int = 1500) -> str:
         return text
     return text[:max_chars].rsplit(" ", 1)[0] + " ..."
 
-# ──────────────────────────────────────────────────────────────────────────────
-# JSON extraction & normalization
-# ──────────────────────────────────────────────────────────────────────────────
+
+# --- JSON extraction and normalization functions ---
 
 def _extract_json_obj(text: str) -> Dict[str, Any] | None:
     """
-    Extract a valid JSON object from messy text output.
+    Extract a valid JSON object from text output.
     - First tries to find the first balanced {...} JSON object (handles quotes and escapes).
     - If multiple valid objects exist, prefers the last one containing 'scenario_text' or 'choices'.
     - Falls back to parsing the whole text if direct extraction fails.
@@ -56,11 +56,10 @@ def _extract_json_obj(text: str) -> Dict[str, Any] | None:
     if not isinstance(text, str):
         return None
 
-    # Clean code fences (```)
+    # Remove markdown fences
     t = re.sub(r"^```[a-zA-Z]*\n?", "", text.strip())
     t = re.sub(r"\n?```$", "", t).strip()
 
-    # --- First pass: find and parse all balanced {...} blocks ---
     candidates = []
     depth = 0
     start = None
@@ -112,11 +111,6 @@ def _extract_json_obj(text: str) -> Dict[str, Any] | None:
 
     return None
 
-
-def _jsonish_to_obj(s: str) -> Dict[str, Any] | None:
-    """Alias for extracting a JSON object from text."""
-    return _extract_json_obj(s)
-
 def _coerce_choices(raw) -> list[Dict[str, Any]]:
     """Normalize choice data into a list of 3 dicts with ids and text."""
     out = []
@@ -135,16 +129,15 @@ def _coerce_choices(raw) -> list[Dict[str, Any]]:
 
 def _normalize_scenario(data: Dict[str, Any], year: int, scenario_id: int) -> Dict[str, Any]:
     """
-    Normalize model output into a consistent structure.
-    - Handles JSON embedded inside `text` or `raw_text`
-    - Ensures exactly 3 choices
+    Normalize model output into a consistent scenario structure.
+    Handles embedded JSON in 'text' or 'raw_text' fields and ensures exactly 3 choices.
     """
     base = data or {}
     if "scenario_text" not in base:
         for key in ("text", "raw_text"):
             v = base.get(key)
             if isinstance(v, str):
-                inner = _jsonish_to_obj(v)
+                inner = _extract_json_obj(v)
                 if isinstance(inner, dict) and ("scenario_text" in inner or "choices" in inner):
                     base = inner
                     break
@@ -165,11 +158,48 @@ def _normalize_scenario(data: Dict[str, Any], year: int, scenario_id: int) -> Di
         "citations": base.get("citations", []),
         "chosen": None,
     }
+    
+def safe_parse_response(raw_output):
+    """
+    Safely parse model output into JSON.
+    Handles both dicts and string outputs.
+    """
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Realtime SageMaker call
-# ──────────────────────────────────────────────────────────────────────────────
+    # if already parsed JSON, just return
+    if isinstance(raw_output, dict):
+        return raw_output
 
+    if raw_output is None:
+        return {}
+
+    text = str(raw_output).strip()
+
+    # remove code fences or markdown formatting
+    if text.startswith("```"):
+        text = text.strip("`")
+        if text.lower().startswith("json"):
+            text = text[4:].strip()
+
+    # try to extract last JSON object if multiple exist
+    if text.count("{") > 1 and text.count("}") > 1:
+        try:
+            start = text.rfind("{")
+            text = text[start:]
+        except Exception:
+            pass
+
+    try:
+        return json.loads(text)
+    except Exception:
+        try:
+            start = text.find("{")
+            end = text.rfind("}") + 1
+            return json.loads(text[start:end])
+        except Exception:
+            return {"error": "Failed to parse model output", "raw": text}
+
+
+# --- Model invocation ---
 
 def invoke_sync_tgi(prompt: str, *, max_new_tokens: int = 300, temperature: float = 0.7) -> str:
     """Invoke a SageMaker text-generation endpoint synchronously."""
@@ -209,13 +239,12 @@ def invoke_sync_tgi(prompt: str, *, max_new_tokens: int = 300, temperature: floa
     return raw
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# JSON generator (sync)
-# ──────────────────────────────────────────────────────────────────────────────
-
 
 def generate_json(prompt: str, *, max_new_tokens: int = 600, temperature: float = 0.7) -> Dict[str, Any]:
-    """Generate and parse a JSON object from model output."""
+    """
+    Generate and parse a JSON object from model output.
+    Clips overly long prompts and ensures safe token limits.
+    """
     
     prompt = _clip_chars(prompt, 4000)
     tokens_in = _approx_tokens(prompt)
@@ -243,32 +272,8 @@ def generate_json(prompt: str, *, max_new_tokens: int = 600, temperature: float 
 
     return {"raw_text": raw}
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Back-compat shims for code that still expects async-style functions
-# ──────────────────────────────────────────────────────────────────────────────
 
-
-def start_generation(prompt: str, max_new_tokens=200, temperature=0.7) -> Dict[str, Any]:
-    """Run sync generation and return dict."""
-    return generate_json(prompt, max_new_tokens=max_new_tokens, temperature=temperature)
-
-
-def collect_generation(output_location: typing.Any, timeout_s: int | None = None) -> Dict[str, Any]:
-    """Handle async-style output gracefully."""
-    if isinstance(output_location, dict):
-        return output_location
-    if isinstance(output_location, str):
-        try:
-            obj = json.loads(output_location)
-            if isinstance(obj, dict):
-                return obj
-        except Exception:
-            return {"raw_text": output_location}
-    return {"raw_text": str(output_location)}
-
-# ──────────────────────────────────────────────────────────────────────────────
-# Prompts & rules
-# ──────────────────────────────────────────────────────────────────────────────
+# --- Prompt templates and scenario rules ---
 
 # Defines system rules that the LLM must adhere to
 SYSTEM_RULES = {
