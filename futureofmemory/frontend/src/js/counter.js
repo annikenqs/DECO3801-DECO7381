@@ -1,3 +1,4 @@
+/* Function that creates a simple clickable counter and updates the number on screen */
 export function setupCounter(element) {
   let counter = 0;
   const setCounter = (count) => {

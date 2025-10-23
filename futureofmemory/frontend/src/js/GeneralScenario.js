@@ -6,6 +6,7 @@ import {
   getCurrentScenario,
 } from '../api/futureMemoryApi.js';
 
+// Handles showing and hiding the loading overlay during game actions
 const FMLoading = (() => {
   const el = () => document.getElementById('fm-loading');
   const textEl = () => document.getElementById('fm-loading-text');
@@ -15,11 +16,13 @@ const FMLoading = (() => {
 
   const lines = ['Fate is not given — it is constructed...'];
 
+  // Picks a loading text (custom or random)
   function pickLine(reason) {
     if (typeof reason === 'string' && reason.trim()) return reason;
     return lines[Math.floor(Math.random() * lines.length)];
   }
 
+  // Shows the loading overlay with an optional message
   function show(reason) {
     counter++;
     const root = el();
@@ -31,11 +34,13 @@ const FMLoading = (() => {
     timeoutId = setTimeout(() => forceHide(), 25000);
   }
 
+  // Hides one instance of the loading overlay
   function hide() {
     counter = Math.max(0, counter - 1);
     if (counter === 0) forceHide();
   }
 
+  // Instantly hides the overlay and resets counters
   function forceHide() {
     const root = el();
     if (root) root.hidden = true;
@@ -44,6 +49,7 @@ const FMLoading = (() => {
     counter = 0;
   }
 
+  // Updates the message text while overlay is visible
   function setText(msg) {
     const t = textEl();
     if (t && typeof msg === 'string' && msg.trim()) t.textContent = msg;
@@ -72,6 +78,7 @@ const setProgress = (i) => {
   progressEl.textContent = `YEAR ${yearOf(i)}`;
 };
 
+// Updates the message text while overlay is visible
 async function submitVoteAndPoll({pin, scenarioId, choice, onTick, onDone}) {
   try {
     await castScenarioVote({pin, scenarioId, choice});

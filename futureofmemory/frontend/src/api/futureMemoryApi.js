@@ -4,22 +4,25 @@ const API_BASE =
   import.meta.env?.VITE_API_BASE ||
   '/api';
 
+// Generic helper for making HTTP requests to the backend
 export async function request(
   path,
   {method = 'GET', query, body, timeoutMs = 10000, headers = {}} = {}
 ) {
   const url = new URL(`${API_BASE}${path}`, window.location.origin);
+  // Append query parameters if provided
   if (query) {
     Object.entries(query).forEach(
       ([k, v]) => v !== undefined && url.searchParams.set(k, String(v))
     );
   }
-
+  // Setup timeout controller for long-running requests
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   let res;
   try {
+    // Perform fetch request with JSON support
     res = await fetch(url.toString(), {
       method,
       headers: {
@@ -38,7 +41,7 @@ export async function request(
   } finally {
     clearTimeout(timer);
   }
-
+  // Try to parse JSON response (ignore if not JSON)
   let data = null;
   try {
     data = await res.json();
@@ -46,7 +49,7 @@ export async function request(
     /* ignore non-JSON response */
     void err; // avoid no-unused-vars/no-empty
   }
-
+  // Handle non-OK HTTP status responses
   if (!res.ok) {
     const msg = (data && (data.error || data.message)) || `HTTP ${res.status}`;
     const e = new Error(msg);
@@ -56,34 +59,34 @@ export async function request(
   }
   return data;
 }
-
+// Create a new game session
 export function createSession({faction = 'Unknown', year = 2075, pin} = {}) {
   return request('/session/', {
     method: 'POST',
     body: {faction, year, ...(pin ? {pin} : {})},
   });
 }
-
+// Join an existing session using PIN
 export function joinSession({pin}) {
   if (!pin) throw new Error('joinSession: pin is required');
   return request('/session/join/', {method: 'POST', body: {pin}});
 }
-
+// Get the current number of players in a session
 export function getPlayerCount({pin}) {
   if (!pin) throw new Error('getPlayerCount: pin is required');
   return request(`/session/${pin}/players/count/`, {method: 'GET'});
 }
-
+// Update the current game state (e.g., "waiting", "in-progress")
 export function updateGameStatus({pin, status}) {
   if (!pin) throw new Error('updateGameStatus: pin is required');
   if (!status) throw new Error('updateGameStatus: status is required');
   return request(`/session/${pin}/state/`, {method: 'PATCH', body: {status}});
 }
-
+// Shortcut to start the game
 export function startGame({pin}) {
   return updateGameStatus({pin, status: 'in-progress'});
 }
-
+// Submit a player’s faction vote
 export function voteForFaction({pin, faction}) {
   if (!pin) throw new Error('voteForFaction: pin is required');
   if (!faction) throw new Error('voteForFaction: faction is required');
@@ -93,18 +96,18 @@ export function voteForFaction({pin, faction}) {
     body: {faction},
   });
 }
-
+// Check current faction voting results
 export function checkFactionVoting({pin}) {
   if (!pin) throw new Error('checkFactionVoting: pin is required');
   return request(`/session/${pin}/faction/result/`, {method: 'GET'});
 }
-
+// Get current game state (status, phase, etc.)
 export function getGameState({pin}) {
   if (!pin) throw new Error('getGameState: pin is required');
   return request(`/session/${pin}/state/`, {method: 'GET'});
 }
 
-// Scenario (server requires status === 'in-progress')
+// Create a new scenario for the session
 export function getScenario({pin, timeoutMs = 120000}) {
   if (!pin) throw new Error('getScenario: pin is required');
   return request(`/session/${pin}/scenario/`, {
@@ -113,7 +116,7 @@ export function getScenario({pin, timeoutMs = 120000}) {
     timeoutMs,
   });
 }
-
+// Retrieve the next scenario based on the previous one
 export function getNextScenario({pin, previousScenarioId, timeoutMs = 120000}) {
   if (!pin) throw new Error('getNextScenario: pin is required');
   if (previousScenarioId == null)
@@ -124,7 +127,7 @@ export function getNextScenario({pin, previousScenarioId, timeoutMs = 120000}) {
     timeoutMs,
   });
 }
-
+// Retrieve the current scenario (without creating a new one)
 export function getCurrentScenario({pin, timeoutMs = 12000}) {
   if (!pin) throw new Error('getCurrentScenario: pin is required');
   return request(`/session/${pin}/scenario/current/`, {
@@ -132,16 +135,16 @@ export function getCurrentScenario({pin, timeoutMs = 12000}) {
     timeoutMs,
   });
 }
-
+// Helper to convert letter (A/B/C) to choice ID number
 const letterToId = (x) => ({A: 1, B: 2, C: 3})[String(x).toUpperCase()] ?? Number(x);
-
+// Cast a player’s choice vote within a scenario
 export function castScenarioVote({pin, scenarioId, choice}) {
   return request(`/session/${pin}/vote/`, {
     method: 'PATCH',
     body: {scenarioId: Number(scenarioId), choiceId: letterToId(choice)},
   });
 }
-
+// Get current voting progress and status for a scenario
 export function getVoteStatus({pin, scenarioId}) {
   return request(`/session/${pin}/votes/status/`, {
     method: 'GET',

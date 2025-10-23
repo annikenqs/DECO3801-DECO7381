@@ -3,12 +3,14 @@
 const params = new URLSearchParams(window.location.search);
 const pin = params.get('pin');
 
+// Build the destination URL with PIN if present
 let TARGET_URL = 'index-2075.html';
 if (pin) {
   TARGET_URL += `?pin=${encodeURIComponent(pin)}`;
   console.log('[Travel] Pin detected:', pin);
 }
 
+// Set the "Skip" link to go directly to the destination
 const skipEl = document.getElementById('skip');
 if (skipEl) {
   skipEl.href = TARGET_URL;
@@ -33,6 +35,7 @@ const lines = [
 ];
 
 let idx = 0;
+// Display each loading text line in sequence
 function nextLine() {
   if (idx >= lines.length) return;
   lineEl.textContent = lines[idx++];
@@ -44,6 +47,7 @@ function nextLine() {
 let left = TOTAL_SECONDS;
 countEl.textContent = String(left).padStart(2, '0');
 
+// Start countdown timer and visual effects
 const timer = setInterval(() => {
   left--;
   if (left <= 0) {
@@ -54,10 +58,12 @@ const timer = setInterval(() => {
       bgEl.style.backgroundImage = `url('${FINAL_BG}')`;
     }
 
+    // Delay slightly before teleporting to target page
     setTimeout(() => {
       window.location.href = TARGET_URL;
     }, 300);
   } else {
+    // Update countdown and alternate visual flicker
     countEl.textContent = String(left).padStart(2, '0');
 
     bgEl.style.filter =
@@ -66,6 +72,7 @@ const timer = setInterval(() => {
 }, 1000);
 
 // —— Skip ——
+// Allow player to skip the teleportation effect manually
 skipEl.addEventListener('click', () => {
   window.location.href = TARGET_URL;
 });

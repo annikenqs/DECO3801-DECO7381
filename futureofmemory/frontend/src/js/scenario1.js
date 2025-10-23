@@ -1,13 +1,13 @@
-// scenario1.js
 import {checkFactionVoting, voteForFaction} from '../api/futureMemoryApi.js';
 
-// ===== Loading Overlay=====
+// Handles the display and hiding of the loading overlay during votes or fetches
 const FMLoading = (() => {
   const root = () => document.getElementById('fm-loading');
   const text = () => document.getElementById('fm-loading-text');
   let n = 0,
     timer = null;
 
+  // Show loading overlay with optional message
   function show(msg) {
     n++;
     const el = root();
@@ -17,14 +17,17 @@ const FMLoading = (() => {
     clearTimeout(timer);
     timer = setTimeout(forceHide, 25000);
   }
+  // Change text while overlay is visible
   function setText(msg) {
     const el = text();
     if (el && msg != null) el.innerHTML = msg;
   }
+  // Hide one instance of overlay
   function hide() {
     n = Math.max(0, n - 1);
     if (n === 0) forceHide();
   }
+  // Force hide the overlay and reset state
   function forceHide() {
     const el = root();
     if (el) el.hidden = true;
@@ -34,14 +37,15 @@ const FMLoading = (() => {
   }
   return {show, hide, setText, forceHide};
 })();
-
+// Time delay before moving to next scene
 const FINAL_HOLD_MS = 4000; // The "Final Camp" section in Loading displays the dwell time
+// Get the session PIN from the URL query string
 function getPinFromUrl() {
   const params = new URLSearchParams(window.location.search);
   return params.get('pin');
 }
 
-// --- poll status ---
+// Poll backend to check if all players have voted
 async function pollVotingStatus(pin) {
   try {
     const status = await checkFactionVoting({pin});
@@ -69,13 +73,15 @@ async function pollVotingStatus(pin) {
   }
 }
 
-// --- UI helpers ---
+// Hide all voting choice buttons
 function hideChoices() {
   document.querySelectorAll('.choice').forEach((btn) => (btn.style.display = 'none'));
 }
+// Show all voting choice buttons
 function showChoices() {
   document.querySelectorAll('.choice').forEach((btn) => (btn.style.display = 'grid'));
 }
+// Display a status or result message in the center of the page
 function showMessage(msg) {
   let msgEl = document.getElementById('vote-message');
   if (!msgEl) {
@@ -89,6 +95,7 @@ function showMessage(msg) {
   msgEl.textContent = msg;
 }
 
+// Format faction names for display
 function formatFaction(f) {
   const map = {
     rightists: 'Rightists',
@@ -98,6 +105,7 @@ function formatFaction(f) {
   return map[f] ?? String(f);
 }
 
+// Navigate to next page (GeneralScenario.html) with same PIN
 function goToNextPage(pin) {
   const url = new URL('GeneralScenario.html', window.location.href);
   url.searchParams.set('pin', pin);
@@ -106,6 +114,7 @@ function goToNextPage(pin) {
   }, 300);
 }
 
+// Delay helper function
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // --- main ---
@@ -113,11 +122,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const choices = document.querySelectorAll('.choice');
   const pin = getPinFromUrl();
 
+  // Stop if no valid session PIN found
   if (!pin) {
     showMessage('Error: no PIN found in URL.');
     return;
   }
 
+  // Handle vote button click
   choices.forEach((btn) => {
     btn.addEventListener('click', async () => {
       const faction = btn.dataset.mode;
@@ -129,10 +140,11 @@ document.addEventListener('DOMContentLoaded', () => {
       FMLoading.show('Submitting your vote…');
 
       try {
+        // Send vote to backend
         const data = await voteForFaction({pin, faction});
         console.log('Vote successful:', data);
 
-        // wait stage
+        // Update waiting message after voting
         const votes = data?.total_votes ?? data?.votesIn ?? null;
         const players = data?.number_of_players ?? data?.totalPlayers ?? null;
         if (votes != null && players != null) {
@@ -165,6 +177,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Poll every 5 seconds
+  // Re-check voting status every 5 seconds
   setInterval(() => pin && pollVotingStatus(pin), 5000);
 });

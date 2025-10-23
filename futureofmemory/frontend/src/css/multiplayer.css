@@ -1,3 +1,4 @@
+/* Page layout and background styling for Multiplayer screen */
 .multiplayer-container {
   display: flex;
   flex-direction: column;
@@ -6,6 +7,7 @@
   margin-top: 40px;
 }
 
+/* Join box layout and alignment */
 .join-box {
   display: flex;
   flex-direction: column;
@@ -13,6 +15,7 @@
   gap: 12px;
 }
 
+/* Input field styling for PIN entry */
 .join-box input {
   width: min(280px, 60vw);
   padding: 12px;
@@ -24,10 +27,12 @@
   text-align: center;
 }
 
+/* Placeholder text styling for input */
 .join-box input::placeholder {
   color: var(--dim);
 }
 
+/* Snow overlay canvas styling */
 #snowCanvas {
   position: fixed;
   inset: 0;

@@ -1,7 +1,5 @@
 import {getPlayerCount, updateGameStatus, getGameState} from '/src/api/futureMemoryApi.js';
 
-// lobby.js
-
 // Get Game PIN from URL
 const urlParams = new URLSearchParams(window.location.search);
 const pin = urlParams.get('pin');

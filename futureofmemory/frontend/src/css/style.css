@@ -1,3 +1,4 @@
+/* Root color and theme variables */
 :root {
   --text: #f3e7b8;
   --dim: #9aa7b0;
@@ -5,11 +6,14 @@
   --btn-brd: #324453;
 }
 
+/* Base document setup and margin reset */
 html,
 body {
   height: 100%;
   margin: 0;
 }
+
+/* Global font, background, and text color styling */
 body {
   font-family:
     system-ui,
@@ -25,6 +29,7 @@ body {
   color: var(--text);
 }
 
+/* Main scene background, grid layout, and image properties */
 .scene {
   position: relative;
   min-height: 100svh;
@@ -40,11 +45,12 @@ body {
   transition: background-image 0.15s linear;
 }
 
+/* Bright variant for the lighthouse background */
 .scene.is-bright {
   background-image: url('../media/bg-lighthouse-bright.png');
 }
 
-/* menu location */
+/* Main menu positioning and layout inside the scene */
 .menu {
   position: relative;
   padding: 0;
@@ -53,6 +59,7 @@ body {
   margin-left: min(28vw, 400px);
 }
 
+/* Game title font styling and spacing */
 .title {
   font-family: 'Press Start 2P', monospace;
   letter-spacing: 1px;
@@ -73,6 +80,7 @@ body {
   display: inline-block;
 }
 
+/* Split title lines for stylized header text */
 .title .l2 {
   text-indent: calc(-1 * var(--protrude));
   padding-left: var(--protrude);
@@ -104,7 +112,7 @@ body {
   opacity: 0;
 }
 
-/* Unify the style of buttons/links */
+/* Button appearance, border, and spacing */
 .btn {
   display: flex;
   justify-content: center;
@@ -122,7 +130,7 @@ body {
   text-decoration: none;
 }
 
-/* Mouse hover */
+/* Button hover and focus state animations */
 .btn:hover,
 .btn:focus-visible {
   filter: brightness(1.1);
@@ -130,6 +138,7 @@ body {
   outline-offset: 2px;
 }
 
+/* Secondary button variation (transparent look) */
 .btn--secondary {
   color: var(--dim);
 }
@@ -152,7 +161,7 @@ body {
   border-radius: 8px;
 }
 
-/* reactive */
+/* Responsive layout adjustments for mobile and tablets */
 @media (max-width: 768px) {
   .scene {
     grid-template-columns: 1fr;
@@ -169,7 +178,7 @@ body {
   }
 }
 
-/* Snowflake effect canvas */
+/* Snow overlay canvas positioned above scene */
 #snowCanvas {
   position: fixed;
   inset: 0;
