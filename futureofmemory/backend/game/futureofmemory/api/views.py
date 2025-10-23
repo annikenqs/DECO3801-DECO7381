@@ -7,6 +7,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 
+# Import requisite services and functions
 from game.futureofmemory.services.query_service import run_rag
 from game.futureofmemory.services.query_service import run_rag_query
 from game.futureofmemory.services.llm_service import (
@@ -129,13 +130,16 @@ def _normalize_scenario(data: Dict[str, Any], year: int, scenario_id: int) -> Di
         "citations": base.get("citations", []),
         "chosen": None,
     }
-        
+
 class SessionView(APIView):
+    """ Creates a new game session with optional faction, year, and PIN. 
+    APIView: 
+    """
     def post(self, request):
-        """
-        Create a new game session in Firebase.
-        """
+
+
         try:
+            # Obtain the requisite data, faction, year and pin
             data = request.data
             faction = data.get("faction", "Unknown")
             year = data.get("year", 2075)
@@ -143,34 +147,36 @@ class SessionView(APIView):
             # pin options
             pin = data.get("pin") or allocate_pin()
 
+            # Create a session
             session = create_session(faction, year, "lobby", pin, numberofplayers=0)
+             
 
             return Response(session, status=status.HTTP_201_CREATED)
+
 
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class JoinSessionView(APIView):
-    """
-    POST /api/join/
-    Allows a player to join an existing session using PIN
-    """
+    """ Allows a player to join an existing session using a PIN. """
     def post(self, request):
+        
         try:
             data = request.data
             pin = data.get("pin")
 
             if not pin:
+                
                 return Response(
                     {"error": "PIN is required"}, 
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-            # Join the session
+            # try joining a session using the pin
             session = join_session(pin)
             
-            # Debug: Check what type session is
+
             if not isinstance(session, dict):
                 return Response(
                     {"error": f"Unexpected return type from join_session: {type(session)}, value: {session}"}, 
@@ -196,20 +202,20 @@ class JoinSessionView(APIView):
 
 
 class FactionVoteView(APIView):
-    """
-    POST /api/session/{pin}/faction/vote/
-    Allows a player to vote for a faction.
-    """
+    """ Allows a player to vote for a faction in a session. """
     def post(self, request, pin):
+
         try:
             data = request.data
             faction = data.get("faction")
+
 
             if not faction:
                 return Response(
                     {"error": "Faction is required"},
                     status=status.HTTP_400_BAD_REQUEST
                 )
+
 
             if faction not in ["rightists", "resourceists", "responsibilists"]:
                 return Response(
@@ -218,10 +224,11 @@ class FactionVoteView(APIView):
                 )
 
             session = get_session_by_pin(pin)
+
             if not session:
                 return Response({"error": "Session not found"}, status=status.HTTP_404_NOT_FOUND)
 
-            # Record the vote
+            # Record the player's vote
             result = vote_for_faction(pin, faction)
 
             return Response({
@@ -244,13 +251,13 @@ class FactionVoteView(APIView):
 
 
 class FactionResultView(APIView):
-    """
-    GET /api/session/{pin}/faction/result/
-    Gets the current voting status or finalizes the vote if all players have voted.
-    """
+    """ Retrieves faction voting results and finalizes if all players have voted. """
     def get(self, request, pin):
+
+
         try:
             session = get_session_by_pin(pin)
+
             if not session:
                 return Response({"error": "Session not found"}, status=status.HTTP_404_NOT_FOUND)
 
@@ -267,6 +274,7 @@ class FactionResultView(APIView):
                 print(f"[FactionResultView] Finalizing faction vote...")
                 result = finalize_faction_vote(pin)
                 print(f"[FactionResultView] Finalized faction: {result['faction']}")
+
                 return Response({
                     "finalized": True,
                     "faction": result["faction"],
@@ -276,7 +284,7 @@ class FactionResultView(APIView):
                     "votedPlayers": vote_status["votedPlayers"]
                 }, status=status.HTTP_200_OK)
             
-            # Return current status
+            # else, return current voting status (that is not finalised)
             print(f"[FactionResultView] Returning current status (not finalizing)")
             return Response({
                 "finalized": vote_status["allVoted"],
@@ -293,6 +301,7 @@ class FactionResultView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+
 class ScenarioView(APIView):
     """
     POST /api/session/{pin}/scenario/
@@ -302,11 +311,21 @@ class ScenarioView(APIView):
     Frontend can still poll /scenario/current/; this is backward-compatible.
     """
     def post(self, request, pin):
+
         try:
             session = get_session_by_pin(pin)
+   
             if not session:
+                return Response({"error": "Session not found"}, status=status.HTTP_404_NOT_FOUND)
+            
+
                 return Response({"error": "Session not found"}, status=404)
             if session.get("status") != "in-progress":
+                return Response({"error": "Game has not started yet."}, status=status.HTTP_403_FORBIDDEN)
+            
+            # if the faction for the session isn't determined, return an error response
+            if not session.get("faction"):
+                return Response({"error": "Faction not finalized yet."}, status=status.HTTP_409_CONFLICT)
                 return Response({"error": "Game has not started yet."}, status=403)
             if session.get("faction") is None:
                 return Response({"error": "Faction not finalized yet."}, status=409)
@@ -349,6 +368,8 @@ class ScenarioView(APIView):
             import traceback; traceback.print_exc()
             return Response({"error": str(e)}, status=502)
 
+
+
 class NextScenarioView(APIView):
     """
     POST /api/session/{pin}/scenario/next/
@@ -358,12 +379,19 @@ class NextScenarioView(APIView):
     Frontend can still ignore the body and poll /scenario/current/.
     """
     def post(self, request, pin):
+
         try:
+
             data = request.data or {}
+
             prev_id = int(data.get("previousScenarioId", 0))
 
             session = get_session_by_pin(pin)
+
+
             if not session:
+                return Response({"error": "Session not found"}, status=status.HTTP_404_NOT_FOUND)
+            
                 return Response({"error": "Session not found"}, status=404)
             if session.get("status") != "in-progress":
                 return Response({"error": "Game has not started yet."}, status=403)
@@ -371,6 +399,10 @@ class NextScenarioView(APIView):
             scenarios = session.get("scenarios", [])
             if not scenarios:
                 return Response({"error": "No previous scenario exists. Call /scenario/ first."}, status=409)
+
+            # Attempts to find the previous scenario using its ID
+            # if not found, defaults to the last scenario in the list
+            prev = next((s for s in scenarios if int(s.get("id", 0)) == int(prev_id)), scenarios[-1])
 
             # Pick the driving "previous" scenario (explicit id or last)
             prev = next((s for s in scenarios if int(s.get("id", 0)) == prev_id), scenarios[-1])
@@ -424,17 +456,21 @@ class NextScenarioView(APIView):
             import traceback; traceback.print_exc()
             return Response({"error": "Next scenario generation failed", "details": str(e)}, status=502)
 
+
 class CurrentScenarioView(APIView):
     """
     GET /api/session/{pin}/scenario/current/
     Returns the first scenario with chosen == None; otherwise the last scenario.
     """
+    """ Retrieves the current scenario for a session. """
     def get(self, request, pin):
+
         session = get_session_by_pin(pin)
         if not session:
             return Response({"error": "Session not found"}, status=status.HTTP_404_NOT_FOUND)
-
+        
         scenarios = session.get("scenarios", [])
+
         if not scenarios:
             return Response({"detail": "No scenario yet"}, status=status.HTTP_404_NOT_FOUND)
 
@@ -445,23 +481,29 @@ class CurrentScenarioView(APIView):
 
         
 class VotingLogicView(APIView):
+    """ Handles voting logic within a session. """ 
     def patch(self, request, pin):
+
         try:
+
             data = request.data
             scenario_id = data.get("scenarioId")
             choice_id   = data.get("choiceId")
 
             session = get_session_by_pin(pin)
+
             if not session:
                 return Response({"error": "Session not found"}, status=status.HTTP_404_NOT_FOUND)
+
             if session.get("status") != "in-progress":
                 return Response({"error": "Game has not started yet."}, status=status.HTTP_403_FORBIDDEN)
 
-            # 1) Increment this vote (transaction-safe)
+            # 1) increment this vote 
             vote_result = increment_choice_vote(pin, scenario_id, choice_id)
-            tally   = {k: int(v) for k, v in vote_result["votes"].items()}
 
-            # 2) Check totals
+            # update the tally from the vote result
+            tally = {k: int(v) for k, v in vote_result["votes"].items()}
+
             number_of_players = int(session.get("numberofplayers", 0))
             total_votes = sum(tally.values())
 
@@ -480,21 +522,11 @@ class VotingLogicView(APIView):
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-
-
-# endpoint 1: takes care of voting (based on choice id, it updates number in firebase)
-
-# endpoint 2: checks how many players have voted so far, and check it against the number of players
-# returns the choiceID of the picked choice
-
 class PlayerVoteCheck(APIView):
+    """ Compares the number of players who have voted against the total number of players in a session. """
     def get(self, request, pin):
-        """
-        Check how many players have voted vs total players.
-        Query: ?scenarioId=<int>&finalize=true|false
-        - If finalize=true and everyone voted: persist chosen (winner) and return winnerId.
-        - Otherwise just return the current tally and progress.
-        """
+
+        # get the scenario ID from query parameters
         try:
             scenario_id = int(request.query_params.get("scenarioId"))
         except (TypeError, ValueError):
@@ -502,13 +534,18 @@ class PlayerVoteCheck(APIView):
                             status=status.HTTP_400_BAD_REQUEST)
         try:
             session = get_session_by_pin(pin)
+
             if not session:
                 return Response({"error": "Session not found"}, status=status.HTTP_404_NOT_FOUND)
+
             if session.get("status") != "in-progress":
                 return Response({"error": "Game has not started yet."}, status=status.HTTP_403_FORBIDDEN)
 
             scenarios = session.get("scenarios", [])
+
+            # obtain the current scenario using its ID
             current = next((s for s in scenarios if s.get("id") == scenario_id), None)
+
             if not current:
                 return Response({"error": "Scenario not found"}, status=status.HTTP_404_NOT_FOUND)
 
@@ -516,11 +553,13 @@ class PlayerVoteCheck(APIView):
             tally = {str(ch["id"]): int(ch.get("votes", 0)) for ch in current.get("choices", [])}
             total_votes = sum(tally.values())
 
-            # If already finalised, return the winner
+            # If the scenario is already finalised, return the finalised result
             if current.get("chosen") is not None:
+
                 chosen_id = int(current["chosen"])
                 chosen_text = next((c.get("text") for c in current.get("choices", []) 
                     if int(c.get("id")) == chosen_id), None)
+
                 return Response({
                     "pin": pin,
                     "scenarioId": scenario_id,
@@ -544,8 +583,9 @@ class PlayerVoteCheck(APIView):
                     "number_of_players": number_of_players,
                 }, status=status.HTTP_200_OK)
             
-            # just in case there's too many votes
+            # if there's too many votes (oversubscription):
             if total_votes > number_of_players:
+                
                 return Response({
                     "pin": pin,
                     "scenarioId": scenario_id,
@@ -555,9 +595,12 @@ class PlayerVoteCheck(APIView):
                     "total_votes": total_votes,
                     "number_of_players": number_of_players,
                 }, status=status.HTTP_200_OK)
+           
+            # otherwise: everyone has voted
             else:
-                # Everyone has voted -> pick winner and persist (single-shot)
-                winner = pick_winner_from_choices(current["choices"])  # deterministic tie-breaker recommended
+                
+                winner = pick_winner_from_choices(current["choices"]) 
+
                 current["chosen"] = winner["id"]
 
                 for i, s in enumerate(scenarios):
@@ -565,8 +608,8 @@ class PlayerVoteCheck(APIView):
                         scenarios[i] = current
                         break
 
-                update_scenarios(pin, scenarios)  # persist
-
+                update_scenarios(pin, scenarios)  
+                
                 return Response({
                     "pin": pin,
                     "scenarioId": scenario_id,
@@ -577,19 +620,19 @@ class PlayerVoteCheck(APIView):
                     "total_votes": total_votes,
                     "number_of_players": number_of_players,
                 }, status=status.HTTP_200_OK)
-
+            
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
 
 class PlayerCountView(APIView):
+    """ Gets the number of players in a session."""
     def get(self, request, pin):
-        """
-        Gets the number of players in a session.
-        """
+
         try:
             count = get_player_count(pin)
             return Response({"pin": pin, "player_count": count}, status=status.HTTP_200_OK)
+
         except ValueError as e:
             return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
@@ -597,33 +640,32 @@ class PlayerCountView(APIView):
 
 
 class GameStateView(APIView):
+    """ Returns the current game status (e.g. lobby, in-progress, finished)."""
     def get(self, request, pin):
-        """
-        Returns the current game status (e.g. lobby, in-progress, finished).
-        """
         try:
             session = get_session_by_pin(pin)
+
             if not session:
                 return Response({"error": "Session not found"}, status=status.HTTP_404_NOT_FOUND)
             return Response({"status": session.get("status", "lobby")}, status=status.HTTP_200_OK)
+        
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+    # updates the game status    
     def patch(self, request, pin):
-        """
-        Updates the game status, typically to start the game.
-        """
+
         try:
             data = request.data
             new_state = data.get("status")
 
             if not new_state:
                 return Response({"error": "State is required."}, status=status.HTTP_400_BAD_REQUEST)
-
-            # Optional: Add logic to ensure only the host can change the state
-            # For now, anyone can change it.
-
+            
             result = update_game_state(pin, new_state)
+
             return Response(result, status=status.HTTP_200_OK)
+    
         except ValueError as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:

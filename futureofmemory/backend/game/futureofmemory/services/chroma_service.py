@@ -3,6 +3,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import PyPDFLoader
 from pathlib import Path
 
+# initializes Chroma vector store
 def init_chroma(embeddings, persist_directory="./chroma_langchain_db"):
     return Chroma(
         collection_name="neuro_collection",
@@ -10,9 +11,11 @@ def init_chroma(embeddings, persist_directory="./chroma_langchain_db"):
         persist_directory=persist_directory,
     )
 
+# loads documents from the neurotech data directory
 BASE_DIR = Path(__file__).resolve().parent  
 DATA_DIR = BASE_DIR / "neurotech"
 
+# loads and splits documents for vector store ingestion
 def load_documents(data_dir=DATA_DIR):
     docs = []
 

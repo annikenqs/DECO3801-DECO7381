@@ -51,7 +51,6 @@ body::after {
   pointer-events: none;
 }
 
-/* Progress:Year */
 .year {
   position: fixed;
   top: 28px;
@@ -140,7 +139,6 @@ body::after {
   transform: translateY(0.5px);
 }
 
-/* small screen*/
 @media (max-width: 600px) {
   .year {
     font-size: 40px;
@@ -156,7 +154,6 @@ body::after {
   }
 }
 
-/* === Future Memory Loading Overlay === */
 #fm-loading[hidden] {
   display: none !important;
 }
@@ -184,7 +181,6 @@ body::after {
   pointer-events: auto;
 }
 
-/* === Loading card box === */
 .fm-card {
   min-width: min(86vw, 520px);
   max-width: 92vw;
@@ -212,7 +208,6 @@ body::after {
   }
 }
 
-/* Breathing animation*/
 .fm-loading__text {
   margin: 0;
   font-family: 'VT323', 'Courier New', monospace;
@@ -247,7 +242,6 @@ body::after {
   }
 }
 
-/* === Asteroid orbit animation === */
 .fm-orbit {
   position: relative;
   width: 72px;
@@ -255,7 +249,7 @@ body::after {
   margin: 2px auto 10px;
   filter: drop-shadow(0 0 10px rgba(164, 210, 255, 0.25));
 }
-/* Track visualizatio */
+
 .fm-orbit::before {
   content: '';
   position: absolute;
@@ -267,7 +261,7 @@ body::after {
     0 0 8px rgba(164, 210, 255, 0.18);
   opacity: 0.9;
 }
-/* Central Planet */
+
 .fm-planet {
   position: absolute;
   left: 50%;
@@ -300,7 +294,7 @@ body::after {
     opacity: 1;
   }
 }
-/* Asteroid (Revolution) */
+
 .fm-asteroid {
   position: absolute;
   left: 50%;
@@ -374,4 +368,152 @@ body::after {
       transform: translate(-50%, -50%) scale(1.06);
     }
   }
+}
+
+#game-finished-overlay {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(
+    circle at center,
+    rgba(9, 21, 34, 0.85) 0%,
+    rgba(2, 7, 12, 0.95) 100%
+  );
+  backdrop-filter: blur(8px);
+  display: grid;
+  place-items: center;
+  opacity: 0;
+  transition: opacity 1.2s ease;
+  z-index: 9999;
+}
+
+#game-finished-overlay.visible {
+  opacity: 1;
+}
+
+#game-finished-overlay::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle, rgba(164, 210, 255, 0.04) 1px, transparent 1px);
+  background-size: 3px 3px;
+  opacity: 0.15;
+  animation: drift 20s linear infinite;
+}
+
+@keyframes drift {
+  from {
+    transform: translateY(0px);
+  }
+  to {
+    transform: translateY(-40px);
+  }
+}
+
+.game-finish-card {
+  text-align: center;
+  padding: 32px 48px;
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(12, 24, 38, 0.88), rgba(8, 18, 30, 0.96));
+  border: 1px solid rgba(164, 210, 255, 0.22);
+  box-shadow:
+    0 12px 30px rgba(2, 7, 12, 0.6),
+    0 0 0 1px rgba(164, 210, 255, 0.1) inset;
+  animation: fm-pop 220ms ease-out both;
+}
+
+.finish-title {
+  font-size: 28px;
+  color: var(--ink);
+  margin-bottom: 24px;
+  text-shadow:
+    0 0 2px rgba(255, 255, 255, 0.25),
+    0 0 14px var(--glow1),
+    0 0 30px var(--glow2);
+  opacity: 0;
+  animation:
+    fadeInMemory 2.5s ease forwards,
+    softPulse 3s ease-in-out infinite 2.5s;
+}
+
+@keyframes fadeInMemory {
+  0% {
+    opacity: 0;
+    filter: blur(4px);
+    transform: translateY(6px);
+  }
+  60% {
+    opacity: 1;
+    filter: blur(1px);
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+
+@keyframes softPulse {
+  0%,
+  100% {
+    text-shadow:
+      0 0 4px rgba(164, 210, 255, 0.2),
+      0 0 14px rgba(120, 180, 255, 0.15);
+    opacity: 0.9;
+  }
+  50% {
+    text-shadow:
+      0 0 12px rgba(164, 210, 255, 0.4),
+      0 0 26px rgba(120, 180, 255, 0.3);
+    opacity: 1;
+  }
+}
+
+#returnHomeBtn {
+  animation: fadeInButton 1.8s ease forwards;
+  opacity: 0;
+  animation-delay: 1.8s;
+}
+
+@keyframes fadeInButton {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.final-year {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  height: 100vh;
+  width: 100%;
+  position: fixed;
+  top: 0;
+  left: 0;
+  background: linear-gradient(180deg, var(--bg) 0%, var(--bg-deep) 100%);
+  z-index: 1000;
+}
+
+.final-year .year {
+  position: relative;
+  top: -40px;
+  font-size: 48px;
+  margin: 0 0 40px 0;
+  text-align: center;
+  text-shadow:
+    0 0 4px rgba(255, 255, 255, 0.25),
+    0 0 20px var(--glow1),
+    0 0 40px var(--glow2);
+}
+
+.final-year .scenario {
+  max-width: 900px;
+  font-size: 28px;
+  line-height: 1.3;
+  text-shadow:
+    0 0 2px rgba(255, 255, 255, 0.25),
+    0 0 14px var(--glow1),
+    0 0 30px var(--glow2);
 }
